@@ -1,0 +1,17 @@
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Python / Django (Backend)
+__pycache__/
+*.py[cod]
+backend/venv/
+backend/env/
+backend/.env
+backend/db.sqlite3
+backend/media/
+
+# Node / React (Frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.env

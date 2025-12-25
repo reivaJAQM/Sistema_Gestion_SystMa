@@ -1,0 +1,125 @@
+:root {
+  --fc-border-color: #d1d5db; 
+  --fc-button-text-color: #495057;
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: #ced4da;
+  --fc-button-hover-bg-color: #f8f9fa;
+  --fc-button-hover-border-color: #b1b7c1;
+  --fc-button-active-bg-color: #e2e6ea;
+  --fc-button-active-border-color: #a5aab0;
+  --fc-event-bg-color: #3788d8;
+  --fc-event-border-color: #3788d8;
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: rgba(208, 208, 208, 0.3);
+  --fc-list-event-hover-bg-color: #f1f3f5;
+  --fc-today-bg-color: rgba(255, 220, 40, 0.05) !important; 
+}
+
+body {
+  background-color: #f0f2f5;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- ESTILOS GENERALES DEL CALENDARIO --- */
+.fc {
+  font-family: 'Inter', 'Roboto', sans-serif;
+  background: white;
+  border-radius: 12px; 
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
+  border: 1px solid #c0c4cc; 
+}
+
+.fc-toolbar-title {
+  font-size: 1.5rem !important;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.fc-button {
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  transition: all 0.2s ease;
+}
+
+.fc-col-header-cell-cushion {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #4a5568;
+  padding: 12px 0 !important;
+}
+
+.fc-timegrid-slot {
+  height: 3.5em !important; 
+}
+
+.fc-timegrid-slot-lane {
+    border-bottom: 1px solid #d1d5db !important;
+}
+
+/* =========================================
+   EVENTOS "FULL WIDTH" (RELLENO TOTAL)
+   ========================================= */
+
+/* 1. ELIMINAR CÁLCULOS DE POSICIÓN JS (NUCLEAR OPTION) */
+/* Esto fuerza al contenedor a ocupar el 100% del ancho, sobrescribiendo los estilos inline */
+.fc-timegrid-event-harness {
+  left: 0% !important;
+  right: 0% !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 2. Estilo del bloque del evento */
+.fc-event {
+  border: none !important;
+  border-radius: 0 !important; /* Cuadrado perfecto */
+  box-shadow: none !important;
+  margin: 0 !important; 
+  width: 100% !important;
+}
+
+/* 3. Contenido interno */
+.fc-event-main {
+  padding: 4px 8px !important;
+  border-radius: 0 !important;
+  height: 100%; 
+  /* Borde inferior sutil para separar si hay dos tareas seguidas */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
+}
+
+/* 4. Ajustes verticales */
+.fc-timegrid-event {
+  margin-top: 2px !important; /* Pegado a la línea de arriba */
+  margin-bottom: 2px !important; /* Pegado a la línea de abajo */
+  z-index: 1; 
+}
+
+/* 5. Hover */
+.fc-event:hover {
+  filter: brightness(0.95); 
+  cursor: pointer;
+  z-index: 50 !important; 
+}
+
+/* 6. Indicador hora actual */
+.fc-timegrid-now-indicator-line {
+  border-color: #d93025; 
+  border-width: 2px;
+  z-index: 100; 
+}
+.fc-timegrid-now-indicator-arrow {
+  border-color: #d93025;
+  border-width: 6px;
+  z-index: 100;
+}
