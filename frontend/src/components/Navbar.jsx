@@ -12,15 +12,14 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddCircleIcon from '@mui/icons-material/AddCircle'; 
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import AssignmentIcon from '@mui/icons-material/Assignment'; // Para Técnicos
-import GroupAddIcon from '@mui/icons-material/GroupAdd'; // Para Admins
-import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'; // Para Supervisores
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import GroupAddIcon from '@mui/icons-material/GroupAdd';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false); 
 
-  // Datos del usuario recuperados del localStorage
   const usuario = localStorage.getItem('user_name');
   const rol = localStorage.getItem('user_rol');
 
@@ -36,7 +35,6 @@ export default function Navbar() {
     setDrawerOpen(open);
   };
 
-  // El contenido del menú lateral
   const list = () => (
     <Box
       sx={{ width: 250 }}
@@ -55,7 +53,6 @@ export default function Navbar() {
       <Divider />
       
       <List>
-        {/* --- OPCIÓN COMÚN: PANEL DE CONTROL (CALENDARIO) --- */}
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/calendario">
             <ListItemIcon>
@@ -65,7 +62,6 @@ export default function Navbar() {
           </ListItemButton>
         </ListItem>
 
-        {/* --- SECCIÓN TÉCNICO: MIS TRABAJOS --- */}
         {rol === 'Tecnico' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/mis-trabajos">
@@ -77,29 +73,28 @@ export default function Navbar() {
           </ListItem>
         )}
 
-        {/* --- SECCIÓN SUPERVISOR: MIS SUPERVISIONES (NUEVO) --- */}
         {rol === 'Supervisor' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/panel-supervisor">
               <ListItemIcon>
-                <AssignmentIndIcon color="info" /> {/* Color azul claro/info */}
+                <AssignmentIndIcon color="info" />
               </ListItemIcon>
               <ListItemText primary="Mis Supervisiones" />
             </ListItemButton>
           </ListItem>
         )}
 
-        {/* --- OPCIÓN COMÚN: NUEVA ORDEN --- */}
-        <ListItem disablePadding>
-          <ListItemButton component={Link} to="/nueva-orden">
-            <ListItemIcon>
-              <AddCircleIcon color="secondary"/>
-            </ListItemIcon>
-            <ListItemText primary="Nueva Orden" />
-          </ListItemButton>
-        </ListItem>
+        {rol !== 'Tecnico' && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/nueva-orden">
+              <ListItemIcon>
+                <AddCircleIcon color="secondary"/>
+              </ListItemIcon>
+              <ListItemText primary="Nueva Orden" />
+            </ListItemButton>
+          </ListItem>
+        )}
 
-        {/* --- SECCIÓN ADMINISTRADOR: GESTIONAR PERSONAL --- */}
         {rol === 'Administrador' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/usuarios">
@@ -142,9 +137,14 @@ export default function Navbar() {
             <MenuIcon />
           </IconButton>
 
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Gestión SystMa
-          </Typography>
+          {/* --- AQUÍ ESTÁ EL CAMBIO CLAVE --- */}
+          {/* Usamos /logo.png porque ahora el archivo vive en la carpeta public */}
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+            <img src="/logo.png" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
+            <Typography variant="h6" component="div">
+              Gestión SystMa
+            </Typography>
+          </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {usuario ? (

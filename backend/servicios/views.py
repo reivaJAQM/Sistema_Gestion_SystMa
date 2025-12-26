@@ -1,11 +1,25 @@
+import os
+from django.conf import settings
+from django.http import HttpResponse
+from django.template.loader import get_template
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from .models import Estado, OrdenTrabajo, Avance # <--- Importamos Avance
-from .serializers import EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer, AvanceSerializer, RegistroUsuarioSerializer # <--- Importamos el Serializer
+from xhtml2pdf import pisa
 
+# Importación de modelos y serializadores
+from .models import Estado, OrdenTrabajo, Avance
+from .serializers import (
+    EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer, 
+    AvanceSerializer, RegistroUsuarioSerializer
+)
+
+# --- PERSONALIZACIÓN DEL JWT (LOGIN) ---
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
@@ -21,6 +35,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
+# --- VISTAS DE LA API ---
+
 class EstadoViewSet(viewsets.ModelViewSet):
     queryset = Estado.objects.all()
     serializer_class = EstadoSerializer
@@ -29,15 +45,18 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
     queryset = OrdenTrabajo.objects.all()
     serializer_class = OrdenTrabajoSerializer
 
-    # AGREGAR ESTE MÉTODO:
     def perform_create(self, serializer):
         user = self.request.user
         
-        # Si el usuario es Supervisor, se asigna automáticamente
+        # 1. Restricción: Los técnicos NO pueden crear órdenes
+        if user.groups.filter(name='Tecnico').exists():
+            raise PermissionDenied("Los técnicos no tienen permiso para generar nuevas órdenes de trabajo.")
+
+        # 2. Asignación automática si es Supervisor
         if user.groups.filter(name='Supervisor').exists():
             serializer.save(supervisor=user)
         else:
-            # Si es Admin, guarda lo que venga en el request (puede venir un supervisor o no)
+            # Si es Admin, guarda lo que venga en el request
             serializer.save()
 
 class ClienteViewSet(viewsets.ModelViewSet):
@@ -55,7 +74,6 @@ class TecnicoViewSet(viewsets.ModelViewSet):
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
-# --- NUEVA VISTA ---
 class AvanceViewSet(viewsets.ModelViewSet):
     queryset = Avance.objects.all().order_by('-creado_en')
     serializer_class = AvanceSerializer
@@ -67,9 +85,49 @@ class AvanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(orden_id=orden_id)
         return queryset
 
-# --- VISTA PARA CREAR USUARIOS ---
 class RegistroUsuarioViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = RegistroUsuarioSerializer
     # Solo el admin debería poder crear staff
     permission_classes = [IsAuthenticated]
+
+# --- GENERACIÓN DE PDF ---
+
+@api_view(['GET'])
+def generar_reporte_pdf(request, pk):
+    """
+    Genera un PDF de la orden de trabajo especificada por pk.
+    Incluye lógica para incrustar el logo desde la carpeta static.
+    """
+    # 1. Obtener datos
+    orden = get_object_or_404(OrdenTrabajo, pk=pk)
+    avances = orden.avances.all().order_by('creado_en')
+
+    # 2. Calcular ruta absoluta del logo
+    # Esto une la carpeta base del proyecto + 'static' + 'logo.png'
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo.png')
+
+    # 3. Preparar contexto para el template
+    template_path = 'reporte_orden.html'
+    context = {
+        'orden': orden, 
+        'avances': avances,
+        'logo_path': logo_path
+    }
+
+    # 4. Configurar respuesta HTTP como PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Reporte_Orden_{pk}.pdf"'
+
+    # 5. Renderizar y crear PDF
+    template = get_template(template_path)
+    html = template.render(context)
+
+    pisa_status = pisa.CreatePDF(
+       html, dest=response
+    )
+
+    if pisa_status.err:
+       return HttpResponse('Error al generar PDF', status=500)
+    
+    return response

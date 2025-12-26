@@ -8,6 +8,7 @@ import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import SendIcon from '@mui/icons-material/Send';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'; // <--- Icono PDF
 import api from '../services/api';
 
 export default function DetalleTrabajo() {
@@ -65,13 +66,50 @@ export default function DetalleTrabajo() {
     }
   };
 
+  // --- FUNCIÓN PARA DESCARGAR PDF ---
+  const descargarPDF = async () => {
+    try {
+      // Hacemos la petición pidiendo 'blob' (archivo binario)
+      const response = await api.get(`ordenes/${id}/pdf/`, {
+        responseType: 'blob',
+      });
+      
+      // Creamos una URL temporal para el archivo descargado
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Reporte_Orden_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Limpiamos
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Error descargando PDF", error);
+      alert("No se pudo generar el reporte. Verifica que el servidor esté corriendo.");
+    }
+  };
+
   if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/mis-trabajos')} sx={{ mb: 2 }}>
-        Volver a Mis Trabajos
-      </Button>
+      
+      {/* Botonera Superior: Volver + Descargar PDF */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/mis-trabajos')}>
+            Volver a Mis Trabajos
+          </Button>
+
+          <Button 
+            variant="contained" 
+            color="error" 
+            startIcon={<PictureAsPdfIcon />} 
+            onClick={descargarPDF}
+          >
+            Descargar Hoja de Servicio
+          </Button>
+      </Box>
 
       {/* --- ENCABEZADO DE LA ORDEN --- */}
       <Paper elevation={3} sx={{ p: 3, mb: 4, borderLeft: '6px solid #1976d2' }}>

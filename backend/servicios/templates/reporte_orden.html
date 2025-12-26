@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        /* Estilos generales para el PDF */
+        body { 
+            font-family: Helvetica, Arial, sans-serif; 
+            font-size: 12px; 
+            color: #333; 
+        }
+        
+        /* Encabezado con Logo */
+        .header { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #1976D2; 
+            padding-bottom: 10px; 
+        }
+        .header-content {
+            display: block;
+            text-align: center;
+        }
+        .logo { 
+            width: 150px; 
+            height: auto; 
+            margin-bottom: 10px; 
+        }
+        .titulo { 
+            font-size: 20px; 
+            font-weight: bold; 
+            color: #1976D2; 
+            margin-top: 5px;
+        }
+        
+        /* Secciones */
+        .seccion { 
+            margin-top: 20px; 
+            margin-bottom: 10px; 
+            font-size: 14px; 
+            font-weight: bold; 
+            background-color: #f0f0f0; 
+            padding: 5px; 
+            border-left: 4px solid #1976D2;
+        }
+        .info-row { 
+            margin-bottom: 6px; 
+        }
+        .label { 
+            font-weight: bold; 
+            display: inline-block; 
+            width: 130px; 
+            color: #555;
+        }
+        
+        /* Tabla de Bitácora */
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+        }
+        th { 
+            background-color: #1976D2; 
+            color: white; 
+            padding: 6px; 
+            text-align: left; 
+            font-size: 11px;
+        }
+        td { 
+            border-bottom: 1px solid #ddd; 
+            padding: 8px; 
+            vertical-align: top; 
+            font-size: 11px;
+        }
+        
+        /* Fotos en la tabla */
+        .foto-container { 
+            margin-top: 5px; 
+            text-align: center; 
+        }
+        .foto-evidencia { 
+            width: 120px; 
+            height: auto; 
+            border: 1px solid #999; 
+            padding: 2px;
+        }
+        
+        /* Pie de página / Firma */
+        .firma-box {
+            margin-top: 60px;
+            text-align: center;
+            page-break-inside: avoid; /* Evita que la firma quede cortada entre páginas */
+        }
+        .linea-firma {
+            display: inline-block;
+            width: 250px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            {% if logo_path %}
+                <img src="{{ logo_path }}" class="logo" alt="Logo Empresa"/>
+            {% endif %}
+            <div class="titulo">HOJA DE SERVICIO TÉCNICO</div>
+            <div style="font-size: 10px; color: #666;">Sistema de Gestión SystMa</div>
+        </div>
+    </div>
+
+    <div class="seccion">DETALLES DE LA ORDEN #{{ orden.id }}</div>
+    <div class="info-row"><span class="label">Trabajo:</span> {{ orden.titulo }}</div>
+    <div class="info-row"><span class="label">Cliente:</span> {{ orden.cliente.first_name }} {{ orden.cliente.last_name }}</div>
+    <div class="info-row"><span class="label">Dirección:</span> {{ orden.direccion }}</div>
+    <div class="info-row"><span class="label">Técnico Asignado:</span> {{ orden.tecnico.username }}</div>
+    <div class="info-row"><span class="label">Fecha Inicio:</span> {{ orden.fecha_inicio|date:"d/m/Y H:i" }}</div>
+    <div class="info-row"><span class="label">Estado Actual:</span> {{ orden.estado.nombre }}</div>
+
+    <div class="seccion">DESCRIPCIÓN DEL REQUERIMIENTO</div>
+    <p style="text-align: justify; line-height: 1.4;">{{ orden.descripcion }}</p>
+
+    <div class="seccion">BITÁCORA DE AVANCES Y EVIDENCIAS</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 20%;">Fecha</th>
+                <th style="width: 50%;">Observación / Reporte</th>
+                <th style="width: 30%;">Evidencia Foto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for avance in avances %}
+            <tr>
+                <td>{{ avance.creado_en|date:"d/m/Y H:i" }}</td>
+                <td>{{ avance.contenido }}</td>
+                <td>
+                    {% if avance.foto %}
+                        <div class="foto-container">
+                            <img src="{{ avance.foto.path }}" class="foto-evidencia" />
+                        </div>
+                    {% else %}
+                        <span style="color: #999; font-style: italic;">Sin foto adjunta</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 15px;">
+                    No se registraron avances o reportes técnicos en esta orden.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="firma-box">
+        <div class="linea-firma">
+            Firma de Conformidad del Cliente
+        </div>
+        <div style="font-size: 10px; margin-top: 5px; color: #666;">
+            Acepto el trabajo realizado y las condiciones del servicio.
+        </div>
+    </div>
+</body>
+</html>

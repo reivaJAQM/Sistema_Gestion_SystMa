@@ -138,15 +138,18 @@ export default function Calendario() {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: '#1a202c' }}>
           Agenda de Trabajo
         </Typography>
-        {/* Solo mostramos botón de crear si NO es técnico (opcional, o todos pueden crear) */}
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/nueva-orden')}
-          sx={{ borderRadius: 2 }}
-        >
-          Agendar Trabajo
-        </Button>
+        
+        {/* CONDICIÓN AGREGADA: Solo mostramos si NO es técnico */}
+        {userRol !== 'Tecnico' && (
+          <Button 
+            variant="contained" 
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/nueva-orden')}
+            sx={{ borderRadius: 2 }}
+          >
+            Agendar Trabajo
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ mb: 5 }}>
