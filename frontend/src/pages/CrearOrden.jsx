@@ -174,7 +174,7 @@ export default function CrearOrden() {
     <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h5" gutterBottom sx={{fontWeight: 'bold'}}>
-          Crear Orden con Geolocalización
+          Crear Orden
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -331,7 +331,7 @@ export default function CrearOrden() {
 
       {/* MODAL CLIENTE */}
       <Dialog open={openModal} onClose={() => setOpenModal(false)}>
-        <DialogTitle>Nuevo Cliente Rápido</DialogTitle>
+        <DialogTitle>Nuevo Cliente</DialogTitle>
         <DialogContent>
             <Stack spacing={2} sx={{ mt: 1, minWidth: 300 }}>
                 <TextField 

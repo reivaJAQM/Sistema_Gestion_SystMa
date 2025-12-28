@@ -23,8 +23,16 @@ from .serializers import (
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        
+        # Datos básicos
         data['username'] = self.user.username
         data['email'] = self.user.email
+        
+        # --- ESTO ES LO IMPORTANTE ---
+        data['user_id'] = self.user.id
+        data['nombre_completo'] = self.user.first_name if self.user.first_name else self.user.username
+        # -----------------------------
+
         if self.user.is_superuser:
             data['rol'] = 'Administrador'
         else:

@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Container, Typography, Box, Card, CardContent, CardActions, 
-  Button, Grid, Chip, CircularProgress 
+  Button, Grid, Chip, CircularProgress, Tabs, Tab, Alert 
 } from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import HistoryIcon from '@mui/icons-material/History';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 export default function MisTrabajos() {
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tabValue, setTabValue] = useState(0); // 0 = Pendientes, 1 = Historial
   const navigate = useNavigate();
   
-  // Obtenemos el ID del usuario actual (asumiendo que guardaste el ID al loguear, 
-  // si no, filtraremos en el cliente por nombre por ahora)
-  const currentUserName = localStorage.getItem('user_name');
+  // Mantenemos la corrección: Usamos ID, no nombre
+  const currentUserId = parseInt(localStorage.getItem('user_id'));
 
   useEffect(() => {
     fetchMisTrabajos();
@@ -24,11 +25,12 @@ export default function MisTrabajos() {
   const fetchMisTrabajos = async () => {
     try {
       const response = await api.get('ordenes/');
-      // Filtramos: Que sea mi usuario Y que el trabajo no esté Finalizado (o sí, para historial)
-      // Ajusta la lógica según prefieras ver solo los activos o todos.
+      
+      // Filtramos solo las órdenes de este técnico
       const misOrdenes = response.data.filter(orden => 
-        orden.tecnico_nombre === currentUserName
+        orden.tecnico === currentUserId
       );
+      
       setOrdenes(misOrdenes);
     } catch (error) {
       console.error("Error cargando trabajos", error);
@@ -37,56 +39,115 @@ export default function MisTrabajos() {
     }
   };
 
-  if (loading) return <Box sx={{ display:'flex', justifyContent:'center', mt:5 }}><CircularProgress /></Box>;
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
 
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Mis Trabajos Asignados
-      </Typography>
+  // --- LÓGICA DE SEPARACIÓN ---
+  // Asumimos que el estado final se llama exactamente 'Finalizado'
+  const pendientes = ordenes.filter(o => o.estado_data?.nombre !== 'Finalizado');
+  const historial = ordenes.filter(o => o.estado_data?.nombre === 'Finalizado');
 
-      {ordenes.length === 0 ? (
-        <Typography variant="body1">No tienes trabajos asignados actualmente.</Typography>
-      ) : (
-        <Grid container spacing={3}>
-          {ordenes.map((orden) => (
+  // Componente auxiliar para renderizar la lista de tarjetas
+  const RenderLista = ({ lista, esHistorial }) => {
+    if (lista.length === 0) {
+      return (
+        <Box sx={{ mt: 5, textAlign: 'center', opacity: 0.7 }}>
+            <Typography variant="h6">
+                {esHistorial 
+                    ? "Aún no tienes trabajos finalizados en el historial." 
+                    : "¡Todo limpio! No tienes trabajos pendientes."}
+            </Typography>
+        </Box>
+      );
+    }
+
+    return (
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+          {lista.map((orden) => (
             <Grid item xs={12} md={6} lg={4} key={orden.id}>
-              <Card elevation={3} sx={{ borderLeft: `6px solid ${orden.estado_data ? orden.estado_data.color : '#ccc'}` }}>
+              <Card elevation={esHistorial ? 1 : 4} sx={{ 
+                  borderLeft: `6px solid ${orden.estado_data ? orden.estado_data.color : '#ccc'}`,
+                  transition: '0.3s',
+                  bgcolor: esHistorial ? '#f9f9f9' : 'white', // Fondo grisáceo si es historial
+                  '&:hover': { transform: 'translateY(-3px)' }
+              }}>
                 <CardContent>
-                  <Typography variant="h6" component="div" gutterBottom>
-                    {orden.titulo}
-                  </Typography>
-                  <Chip 
-                    label={orden.estado_data ? orden.estado_data.nombre : 'Sin Estado'} 
-                    size="small" 
-                    sx={{ mb: 2, bgcolor: orden.estado_data?.color, color: 'white' }} 
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Cliente:</strong> {orden.cliente_nombre}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>Dirección:</strong> {orden.direccion}
-                  </Typography>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    Inicio: {new Date(orden.fecha_inicio).toLocaleString()}
-                  </Typography>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                        {orden.titulo}
+                      </Typography>
+                      {esHistorial && <Chip label="Finalizado" size="small" color="success" variant="outlined" />}
+                  </Box>
+                  
+                  {!esHistorial && (
+                      <Chip 
+                        label={orden.estado_data ? orden.estado_data.nombre : 'Sin Estado'} 
+                        size="small" 
+                        sx={{ mb: 2, bgcolor: orden.estado_data?.color, color: 'white', fontWeight: 'bold' }} 
+                      />
+                  )}
+
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                        <strong>Cliente:</strong> {orden.cliente_nombre}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap title={orden.direccion}>
+                        <strong>Ubicación:</strong> {orden.direccion || "Sin dirección"}
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1, color: '#1976d2', fontWeight: 500 }}>
+                        📅 Inicio: {new Date(orden.fecha_inicio).toLocaleString()}
+                    </Typography>
+                  </Box>
                 </CardContent>
-                <CardActions>
+                
+                <CardActions sx={{ px: 2, pb: 2 }}>
                   <Button 
-                    size="small" 
-                    variant="contained" 
+                    variant={esHistorial ? "outlined" : "contained"} 
+                    color={esHistorial ? "secondary" : "primary"}
                     startIcon={<VisibilityIcon />}
                     onClick={() => navigate(`/trabajo/${orden.id}`)}
                     fullWidth
+                    sx={{ borderRadius: 2 }}
                   >
-                    Ver Bitácora / Avances
+                    {esHistorial ? "Ver Detalles Antiguos" : "Gestionar / Bitácora"}
                   </Button>
                 </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
-      )}
+    );
+  };
+
+  if (loading) return <Box sx={{ display:'flex', justifyContent:'center', mt:5 }}><CircularProgress /></Box>;
+  if (!currentUserId) return <Alert severity="warning" sx={{ mt: 4 }}>Error: Usuario no identificado. Cierra sesión e intenta de nuevo.</Alert>;
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', mb: 3, color: '#1a202c' }}>
+        Mis Trabajos
+      </Typography>
+
+      {/* --- PESTAÑAS SUPERIORES --- */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', borderRadius: 2, mb: 2 }}>
+        <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            centered 
+            variant="fullWidth"
+            textColor="primary"
+            indicatorColor="primary"
+        >
+          <Tab icon={<AssignmentIcon />} iconPosition="start" label={`Pendientes (${pendientes.length})`} />
+          <Tab icon={<HistoryIcon />} iconPosition="start" label="Historial Finalizados" />
+        </Tabs>
+      </Box>
+
+      {/* --- CONTENIDO SEGÚN PESTAÑA --- */}
+      {tabValue === 0 && <RenderLista lista={pendientes} esHistorial={false} />}
+      {tabValue === 1 && <RenderLista lista={historial} esHistorial={true} />}
+
     </Container>
   );
 }

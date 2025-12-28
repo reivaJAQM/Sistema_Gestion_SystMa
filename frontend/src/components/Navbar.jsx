@@ -8,7 +8,8 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Iconos
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard'; 
+import DashboardIcon from '@mui/icons-material/Dashboard'; // Para el Dashboard Principal
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; // Para el Calendario
 import AddCircleIcon from '@mui/icons-material/AddCircle'; 
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -65,15 +66,29 @@ export default function Navbar() {
       <Divider />
       
       <List>
+        {/* --- DASHBOARD / INICIO (Admin y Supervisor) --- */}
+        {rol !== 'Tecnico' && (
+            <ListItem disablePadding>
+            <ListItemButton component={Link} to="/dashboard">
+                <ListItemIcon>
+                   <DashboardIcon color="primary"/>
+                </ListItemIcon>
+                <ListItemText primary="Panel de Administración" />
+            </ListItemButton>
+            </ListItem>
+        )}
+
+        {/* --- CALENDARIO (Para Todos) --- */}
         <ListItem disablePadding>
           <ListItemButton component={Link} to="/calendario">
             <ListItemIcon>
-              <DashboardIcon color="primary"/>
+              <CalendarMonthIcon color="info"/>
             </ListItemIcon>
-            <ListItemText primary="Panel de Control" />
+            <ListItemText primary="Agenda Calendario" />
           </ListItemButton>
         </ListItem>
 
+        {/* --- MIS TRABAJOS (Solo Técnicos) --- */}
         {rol === 'Tecnico' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/mis-trabajos">
@@ -85,17 +100,19 @@ export default function Navbar() {
           </ListItem>
         )}
 
+        {/* --- SUPERVISIÓN (Solo Supervisor) --- */}
         {rol === 'Supervisor' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/panel-supervisor">
               <ListItemIcon>
-                <AssignmentIndIcon color="info" />
+                <AssignmentIndIcon color="error" />
               </ListItemIcon>
-              <ListItemText primary="Mis Supervisiones" />
+              <ListItemText primary="Aprobaciones" />
             </ListItemButton>
           </ListItem>
         )}
 
+        {/* --- NUEVA ORDEN (Admin y Supervisor) --- */}
         {rol !== 'Tecnico' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/nueva-orden">
@@ -107,7 +124,8 @@ export default function Navbar() {
           </ListItem>
         )}
 
-        {rol === 'Administrador' && (
+        {/* --- GESTIÓN USUARIOS (Admin y Supervisor) --- */}
+        {(rol === 'Administrador' || rol === 'Supervisor') && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/usuarios">
               <ListItemIcon>
@@ -118,12 +136,6 @@ export default function Navbar() {
           </ListItem>
         )}
       </List>
-      
-      {/* SECCIÓN ELIMINADA:
-         Aquí estaba antes el botón de cerrar sesión duplicado.
-         Ahora solo existe en el menú del perfil.
-      */}
-
     </Box>
   );
 

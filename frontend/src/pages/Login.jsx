@@ -25,6 +25,7 @@ export default function Login() {
         try {
             const response = await api.post('token/', { username, password });
             
+            // Guardamos los datos en el navegador
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
             localStorage.setItem('user_rol', response.data.rol);
@@ -32,11 +33,18 @@ export default function Login() {
             localStorage.setItem('user_name', response.data.nombre_completo);
 
             const rol = response.data.rol;
-            if (rol === 'Administrador') navigate('/calendario');
-            else if (rol === 'Tecnico') navigate('/calendario');
-            else if (rol === 'Supervisor') navigate('/panel-supervisor');
-            else if (rol === 'Cliente') navigate('/mis-ordenes');
-            else navigate('/calendario');
+
+            // --- LÓGICA DE REDIRECCIÓN ACTUALIZADA ---
+            if (rol === 'Administrador' || rol === 'Supervisor') {
+                // Los jefes van directo al Dashboard para ver el resumen
+                navigate('/dashboard');
+            } else if (rol === 'Tecnico') {
+                // Los técnicos van directo a su lista de trabajos pendientes
+                navigate('/mis-trabajos');
+            } else {
+                // Clientes u otros roles (fallback)
+                navigate('/calendario');
+            }
 
         } catch (error) {
             console.error('Error login', error);
@@ -54,19 +62,19 @@ export default function Login() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: '#f8f9fa', // Un gris "casi blanco" muy elegante
+                bgcolor: '#f8f9fa',
                 p: 2
             }}
         >
             <Paper 
-                elevation={4} // Sombra suave, no agresiva
+                elevation={4} 
                 sx={{ 
                     p: 5, 
                     width: '100%', 
                     maxWidth: 400, 
                     borderRadius: 3, 
                     textAlign: 'center',
-                    bgcolor: '#ffffff', // Blanco puro
+                    bgcolor: '#ffffff',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center'
@@ -113,7 +121,7 @@ export default function Login() {
                                     <PersonOutlineIcon color="action" />
                                 </InputAdornment>
                             ),
-                            style: { borderRadius: 12 } // Bordes redondeados en los inputs
+                            style: { borderRadius: 12 }
                         }}
                     />
 
@@ -141,7 +149,7 @@ export default function Login() {
                         fullWidth 
                         size="large"
                         disabled={loading}
-                        disableElevation // Sin sombra en el botón para look "Flat" moderno
+                        disableElevation 
                         startIcon={!loading && <LoginIcon />}
                         sx={{ 
                             mt: 2, 
@@ -150,7 +158,7 @@ export default function Login() {
                             fontSize: '1rem', 
                             fontWeight: 'bold',
                             textTransform: 'none',
-                            bgcolor: '#1976d2', // Azul SystMa
+                            bgcolor: '#1976d2',
                             '&:hover': { bgcolor: '#115293' }
                         }}
                     >
