@@ -2,17 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Container, Typography, Box, Paper, TextField, Button, Divider, 
-  List, ListItem, ListItemText, ListItemAvatar, Avatar, CircularProgress, Alert
+  List, ListItem, ListItemText, ListItemAvatar, Avatar, CircularProgress, Alert, Grid 
 } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import SendIcon from '@mui/icons-material/Send';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'; // <--- Icono PDF
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import MapIcon from '@mui/icons-material/Map'; // Icono para el botón de GPS
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+
 import api from '../services/api';
 
+// --- LEAFLET (Mapas) ---
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Fix del icono por defecto de Leaflet
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
 export default function DetalleTrabajo() {
-  const { id } = useParams(); // ID de la orden
+  const { id } = useParams(); 
   const navigate = useNavigate();
   
   const [orden, setOrden] = useState(null);
@@ -27,11 +46,9 @@ export default function DetalleTrabajo() {
 
   const cargarDatos = async () => {
     try {
-      // 1. Cargar info de la orden
       const resOrden = await api.get(`ordenes/${id}/`);
       setOrden(resOrden.data);
 
-      // 2. Cargar historial de avances filtrados por esta orden
       const resAvances = await api.get(`avances/?orden=${id}`);
       setAvances(resAvances.data);
     } catch (error) {
@@ -56,49 +73,47 @@ export default function DetalleTrabajo() {
       await api.post('avances/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      // Limpiar y recargar
       setNuevoTexto('');
       setNuevaFoto(null);
-      cargarDatos(); // Refrescamos la lista
+      cargarDatos(); 
     } catch (error) {
       console.error("Error enviando avance", error);
       alert("Error al guardar el avance");
     }
   };
 
-  // --- FUNCIÓN PARA DESCARGAR PDF ---
   const descargarPDF = async () => {
     try {
-      // Hacemos la petición pidiendo 'blob' (archivo binario)
       const response = await api.get(`ordenes/${id}/pdf/`, {
         responseType: 'blob',
       });
-      
-      // Creamos una URL temporal para el archivo descargado
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Reporte_Orden_${id}.pdf`);
       document.body.appendChild(link);
       link.click();
-      
-      // Limpiamos
       link.parentNode.removeChild(link);
     } catch (error) {
       console.error("Error descargando PDF", error);
-      alert("No se pudo generar el reporte. Verifica que el servidor esté corriendo.");
+      alert("No se pudo generar el reporte.");
     }
   };
 
   if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
+  // Convertimos lat/long a números (vienen como strings del backend a veces)
+  const lat = orden.latitud ? parseFloat(orden.latitud) : null;
+  const lng = orden.longitud ? parseFloat(orden.longitud) : null;
+  const tieneGPS = lat && lng;
+
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       
-      {/* Botonera Superior: Volver + Descargar PDF */}
+      {/* Botonera Superior */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/mis-trabajos')}>
-            Volver a Mis Trabajos
+            Volver
           </Button>
 
           <Button 
@@ -107,15 +122,76 @@ export default function DetalleTrabajo() {
             startIcon={<PictureAsPdfIcon />} 
             onClick={descargarPDF}
           >
-            Descargar Hoja de Servicio
+            Descargar PDF
           </Button>
       </Box>
 
       {/* --- ENCABEZADO DE LA ORDEN --- */}
       <Paper elevation={3} sx={{ p: 3, mb: 4, borderLeft: '6px solid #1976d2' }}>
         <Typography variant="h5" fontWeight="bold">{orden.titulo}</Typography>
-        <Typography variant="subtitle1" color="text.secondary">Cliente: {orden.cliente_nombre}</Typography>
-        <Typography variant="body2" sx={{ mt: 1 }}>{orden.descripcion}</Typography>
+        
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" color="text.secondary">
+                    <strong>Cliente:</strong> {orden.cliente_nombre}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                    {orden.descripcion}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                    <strong>Dirección escrita:</strong> {orden.direccion || "Sin dirección"}
+                </Typography>
+            </Grid>
+            
+            {/* FOTO REFERENCIAL SI EXISTE */}
+            {orden.foto_referencia && (
+                <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center' }}>
+                     <img 
+                        src={orden.foto_referencia} 
+                        alt="Fachada" 
+                        style={{ maxHeight: '150px', borderRadius: '8px', border: '1px solid #ddd' }}
+                     />
+                </Grid>
+            )}
+        </Grid>
+
+        {/* --- MAPA DE UBICACIÓN (NUEVO) --- */}
+        {tieneGPS && (
+            <Box sx={{ mt: 3 }}>
+                <Divider sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOnIcon color="error" fontSize="small" /> Ubicación GPS Confirmada
+                    </Typography>
+                    
+                    {/* BOTÓN PARA ABRIR EN GOOGLE MAPS / WAZE */}
+                    <Button 
+                        variant="outlined" 
+                        color="primary" 
+                        size="small"
+                        startIcon={<MapIcon />}
+                        href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Navegar con GPS
+                    </Button>
+                </Box>
+                
+                <Box sx={{ height: '250px', width: '100%', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+                    <MapContainer center={[lat, lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[lat, lng]}>
+                            <Popup>Ubicación exacta del trabajo</Popup>
+                        </Marker>
+                    </MapContainer>
+                </Box>
+            </Box>
+        )}
+
       </Paper>
 
       {/* --- FORMULARIO NUEVO AVANCE --- */}

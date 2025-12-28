@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Container, Typography, Box, Button, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, Grid, Chip, Divider, Avatar
+  Dialog, DialogTitle, DialogContent, DialogActions, Grid, Chip, Divider, Avatar, Paper, Stack
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -13,6 +13,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import MapIcon from '@mui/icons-material/Map'; 
 
 // --- FULLCALENDAR ---
 import FullCalendar from '@fullcalendar/react';
@@ -26,13 +27,9 @@ export default function Calendario() {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Lista de estados disponibles (para saber el ID de "En Progreso", etc.)
   const [listaEstados, setListaEstados] = useState([]);
-  
-  // Datos del Usuario actual
   const userRol = localStorage.getItem('user_rol'); 
 
-  // Estados para el Modal (Pop Up)
   const [modalOpen, setModalOpen] = useState(false);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
 
@@ -42,7 +39,6 @@ export default function Calendario() {
 
   const fetchData = async () => {
     try {
-      // 1. Cargar Órdenes
       const responseOrdenes = await api.get('ordenes/');
       const eventosFormateados = responseOrdenes.data
         .filter(orden => orden.fecha_inicio) 
@@ -58,6 +54,8 @@ export default function Calendario() {
               tecnico: orden.tecnico_nombre || 'No asignado',
               supervisor: orden.supervisor_nombre || 'No asignado',
               direccion: orden.direccion,
+              lat: orden.latitud,
+              lng: orden.longitud,
               foto: orden.foto_referencia,
               estado: orden.estado_data ? orden.estado_data.nombre : 'Pendiente',
               colorEstado: orden.estado_data ? orden.estado_data.color : '#808080',
@@ -66,7 +64,6 @@ export default function Calendario() {
       }));
       setEventos(eventosFormateados);
 
-      // 2. Cargar Estados (Para obtener sus IDs)
       const responseEstados = await api.get('estados/');
       setListaEstados(responseEstados.data);
 
@@ -79,7 +76,7 @@ export default function Calendario() {
 
   const handleEventClick = (info) => {
     setOrdenSeleccionada({
-      id: info.event.id, // Necesitamos el ID para hacer el update
+      id: info.event.id,
       titulo: info.event.title,
       ...info.event.extendedProps
     });
@@ -91,29 +88,23 @@ export default function Calendario() {
     setOrdenSeleccionada(null);
   };
 
-  // --- LÓGICA PARA CAMBIAR ESTADO ---
   const cambiarEstado = async (nuevoNombreEstado) => {
     if (!ordenSeleccionada) return;
 
-    // Buscamos el ID del estado basado en su nombre (ej. "En Progreso")
     const estadoObj = listaEstados.find(e => e.nombre === nuevoNombreEstado);
     
     if (!estadoObj) {
-      alert(`Error: El estado "${nuevoNombreEstado}" no existe en el sistema. Créalo en el admin.`);
+      alert(`Error: El estado "${nuevoNombreEstado}" no existe.`);
       return;
     }
 
     try {
-      // Enviamos el PATCH al backend
       await api.patch(`ordenes/${ordenSeleccionada.id}/`, {
         estado: estadoObj.id
       });
-      
-      // Cerramos modal y recargamos datos para ver el cambio de color
       setModalOpen(false);
       setLoading(true);
       fetchData(); 
-      
     } catch (error) {
       console.error("Error al actualizar estado:", error);
       alert("Hubo un error al actualizar el estado.");
@@ -139,7 +130,6 @@ export default function Calendario() {
           Agenda de Trabajo
         </Typography>
         
-        {/* CONDICIÓN AGREGADA: Solo mostramos si NO es técnico */}
         {userRol !== 'Tecnico' && (
           <Button 
             variant="contained" 
@@ -157,9 +147,9 @@ export default function Calendario() {
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
           headerToolbar={{
-            left: 'prev,next today',
+            left: 'prev next today',
             center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
+            right: 'dayGridMonth timeGridWeek'
           }}
           locale={esLocale}
           events={eventos}
@@ -178,92 +168,161 @@ export default function Calendario() {
         />
       </Box>
 
-      {/* --- POP UP (MODAL) DE DETALLES --- */}
+      {/* --- MODAL DETALLES --- */}
       <Dialog 
         open={modalOpen} 
         onClose={handleCloseModal}
         maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }} 
       >
         {ordenSeleccionada && (
           <>
-            <DialogTitle sx={{ bgcolor: ordenSeleccionada.colorEstado, color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {ordenSeleccionada.titulo}
+            <DialogTitle sx={{ 
+                bgcolor: ordenSeleccionada.colorEstado, 
+                color: 'white', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+            }}>
+              <Box>
+                  <Typography variant="subtitle2" sx={{ opacity: 0.9, textTransform: 'uppercase', letterSpacing: 1 }}>
+                      ORDEN #{ordenSeleccionada.id}
+                  </Typography>
+                  <Typography variant="h6" fontWeight="bold">
+                      {ordenSeleccionada.titulo}
+                  </Typography>
+              </Box>
               <Chip 
                 label={ordenSeleccionada.estado} 
-                sx={{ bgcolor: 'white', color: 'black', fontWeight: 'bold' }} 
+                sx={{ 
+                    bgcolor: 'white', 
+                    color: ordenSeleccionada.colorEstado, 
+                    fontWeight: 'bold',
+                    border: '1px solid rgba(0,0,0,0.1)'
+                }} 
               />
             </DialogTitle>
             
-            <DialogContent dividers>
+            <DialogContent dividers sx={{ p: 3 }}>
+              
               {ordenSeleccionada.foto && (
-                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                   <img 
                     src={ordenSeleccionada.foto} 
                     alt="Referencia" 
-                    style={{ maxHeight: '200px', borderRadius: '8px', maxWidth: '100%' }} 
+                    style={{ 
+                        maxHeight: '200px', 
+                        borderRadius: '12px', 
+                        maxWidth: '100%',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+                    }} 
                   />
                 </Box>
               )}
 
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Typography variant="body1" sx={{ mt: 1 }}>
-                    {ordenSeleccionada.descripcion || "Sin descripción adicional."}
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12}><Divider /></Grid>
-
-                <Grid item xs={12} sm={6}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                        <CalendarMonthIcon color="action" />
-                        <Typography variant="body2">{ordenSeleccionada.fecha_inicio_texto}</Typography>
-                    </Box>
-                </Grid>
+              <Stack spacing={3}>
                 
-                <Grid item xs={12} sm={6}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                        <LocationOnIcon color="action" />
-                        <Typography variant="body2">{ordenSeleccionada.direccion || "Sin dirección"}</Typography>
-                    </Box>
+                <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e9ecef' }}>
+                    <Typography variant="body1" sx={{ color: '#495057', fontStyle: ordenSeleccionada.descripcion ? 'normal' : 'italic' }}>
+                        {ordenSeleccionada.descripcion || "Sin descripción adicional."}
+                    </Typography>
+                </Paper>
+
+                <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Avatar sx={{ bgcolor: '#e3f2fd', color: '#1976d2', width: 40, height: 40 }}>
+                                <CalendarMonthIcon fontSize="small" />
+                            </Avatar>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">FECHA INICIO</Typography>
+                                <Typography variant="body2" fontWeight="500">{ordenSeleccionada.fecha_inicio_texto}</Typography>
+                            </Box>
+                        </Stack>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Avatar sx={{ bgcolor: '#ffebee', color: '#d32f2f', width: 40, height: 40 }}>
+                                <LocationOnIcon fontSize="small" />
+                            </Avatar>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block">DIRECCIÓN</Typography>
+                                <Typography variant="body2" fontWeight="500" sx={{ lineHeight: 1.2 }}>
+                                    {ordenSeleccionada.direccion || "Sin dirección"}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Grid>
                 </Grid>
 
-                <Grid item xs={12}><Divider /></Grid>
+                {ordenSeleccionada.lat && ordenSeleccionada.lng && (
+                    <Button 
+                        variant="outlined" 
+                        fullWidth
+                        size="large"
+                        startIcon={<MapIcon />}
+                        href={`https://www.google.com/maps/search/?api=1&query=${ordenSeleccionada.lat},${ordenSeleccionada.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ 
+                            borderRadius: 2, 
+                            borderWidth: 2,
+                            borderColor: '#1976d2', 
+                            color: '#1976d2',
+                            '&:hover': { borderWidth: 2, bgcolor: '#f0f7ff' }
+                        }}
+                    >
+                        Abrir Ubicación GPS
+                    </Button>
+                )}
 
-                <Grid item xs={12}>
-                    <Typography variant="caption" color="textSecondary">EQUIPO ASIGNADO</Typography>
+                <Divider>
+                    <Chip label="EQUIPO ASIGNADO" size="small" sx={{ color: '#6c757d', fontWeight: 500 }} />
+                </Divider>
+
+                {/* --- AQUI ESTA EL CAMBIO: Grid centrado con justifyContent="center" --- */}
+                <Grid container spacing={2} justifyContent="center" alignItems="center">
+                    {[
+                        { label: 'Cliente', val: ordenSeleccionada.cliente, icon: <PersonIcon />, color: '#1976d2', bg: '#e3f2fd' },
+                        { label: 'Técnico', val: ordenSeleccionada.tecnico, icon: <BuildIcon />, color: '#e65100', bg: '#fff3e0' },
+                        { label: 'Supervisor', val: ordenSeleccionada.supervisor, icon: <SupervisorAccountIcon />, color: '#7b1fa2', bg: '#f3e5f5' }
+                    ].map((item, idx) => (
+                        <Grid item xs={4} key={idx}>
+                            <Box sx={{ 
+                                textAlign: 'center', 
+                                p: 1.5, 
+                                borderRadius: 2, 
+                                bgcolor: item.bg,
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: 'white', color: item.color, mb: 1, boxShadow: 1 }}>
+                                    {React.cloneElement(item.icon, { fontSize: 'small' })}
+                                </Avatar>
+                                <Typography variant="caption" sx={{ color: item.color, fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                                    {item.label}
+                                </Typography>
+                                <Typography variant="body2" fontWeight="bold" noWrap sx={{ width: '100%', textAlign: 'center' }}>
+                                    {item.val}
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    ))}
                 </Grid>
-                <Grid item xs={4}>
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                        <Avatar sx={{ bgcolor: '#1976d2', mb: 1 }}><PersonIcon /></Avatar>
-                        <Typography variant="caption">Cliente</Typography>
-                        <Typography variant="body2" fontWeight="bold">{ordenSeleccionada.cliente}</Typography>
-                    </Box>
-                </Grid>
-                <Grid item xs={4}>
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                        <Avatar sx={{ bgcolor: '#e67e22', mb: 1 }}><BuildIcon /></Avatar>
-                        <Typography variant="caption">Técnico</Typography>
-                        <Typography variant="body2" fontWeight="bold">{ordenSeleccionada.tecnico}</Typography>
-                    </Box>
-                </Grid>
-                <Grid item xs={4}>
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                        <Avatar sx={{ bgcolor: '#9b59b6', mb: 1 }}><SupervisorAccountIcon /></Avatar>
-                        <Typography variant="caption">Supervisor</Typography>
-                        <Typography variant="body2" fontWeight="bold">{ordenSeleccionada.supervisor}</Typography>
-                    </Box>
-                </Grid>
-              </Grid>
+
+              </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-              <Button onClick={handleCloseModal} color="inherit">
+            <DialogActions sx={{ p: 2.5, justifyContent: 'space-between', bgcolor: '#f8f9fa' }}>
+              <Button onClick={handleCloseModal} color="inherit" sx={{ fontWeight: 600 }}>
                 Cerrar
               </Button>
 
-              {/* --- BOTONES DE ACCIÓN DEL TÉCNICO --- */}
               {userRol === 'Tecnico' && (
                 <Box>
                     {ordenSeleccionada.estado === 'Pendiente' && (
@@ -272,28 +331,29 @@ export default function Calendario() {
                             color="primary"
                             startIcon={<PlayArrowIcon />}
                             onClick={() => cambiarEstado('En Progreso')}
+                            sx={{ borderRadius: 2, boxShadow: 2 }}
                         >
-                            Empezar Trabajo
+                            Empezar
                         </Button>
                     )}
 
                     {ordenSeleccionada.estado === 'En Progreso' && (
                         <Button 
                             variant="contained" 
-                            color="warning" // Color naranja para indicar alerta/revisión
+                            color="warning" 
                             startIcon={<SupervisorAccountIcon />}
                             onClick={() => cambiarEstado('En Revisión')}
+                            sx={{ borderRadius: 2, boxShadow: 2 }}
                         >
                             Solicitar Revisión
                         </Button>
                     )}
 
                     {ordenSeleccionada.estado === 'En Revisión' && (
-                        <Chip label="Esperando Aprobación" color="warning" variant="outlined"/>
+                        <Chip label="Esperando Aprobación" color="warning" variant="outlined" sx={{ fontWeight: 'bold' }}/>
                     )}
                 </Box>
               )}
-              {/* ------------------------------------ */}
             </DialogActions>
           </>
         )}

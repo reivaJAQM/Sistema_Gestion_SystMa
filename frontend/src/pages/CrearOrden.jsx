@@ -2,38 +2,86 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Paper, TextField, Button, Typography, Box, 
   Dialog, DialogTitle, DialogContent, DialogActions, 
-  IconButton, Stack, Autocomplete 
+  IconButton, Stack, Autocomplete, MenuItem 
 } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // <--- Nuevo Icono
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
+// --- LEAFLET MAPS ---
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// --- COMPONENTE MARCADOR CLICKEABLE ---
+function LocationMarker({ setPosicion, setDireccion }) {
+    const [position, setPosition] = useState(null);
+    const map = useMapEvents({
+        click(e) {
+            setPosition(e.latlng);
+            setPosicion(e.latlng); 
+            map.flyTo(e.latlng, map.getZoom());
+        },
+    });
+
+    return position === null ? null : (
+        <Marker position={position}></Marker>
+    );
+}
+
 export default function CrearOrden() {
   const navigate = useNavigate();
-  const userRol = localStorage.getItem('user_rol'); // Obtenemos el rol
+  const userRol = localStorage.getItem('user_rol');
   
-  // Estados del Formulario
+  // Estados Formulario
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
   
-  // Estados de Selección (IDs)
+  // GPS
+  const [coords, setCoords] = useState(null); 
+
+  const [fechaSeleccionada, setFechaSeleccionada] = useState('');
+  const [horaSeleccionada, setHoraSeleccionada] = useState('09:00');
+  
+  // IDs Selección
   const [clienteId, setClienteId] = useState('');
   const [tecnicoId, setTecnicoId] = useState(null);
-  const [supervisorId, setSupervisorId] = useState(null); // <--- NUEVO
+  const [supervisorId, setSupervisorId] = useState(null);
   const [foto, setFoto] = useState(null);
 
-  // Listas de Datos
+  // Listas
   const [listaClientes, setListaClientes] = useState([]);
   const [listaTecnicos, setListaTecnicos] = useState([]);
-  const [listaSupervisores, setListaSupervisores] = useState([]); // <--- NUEVO
+  const [listaSupervisores, setListaSupervisores] = useState([]);
 
-  // Estados del Modal (Nuevo Cliente)
-  const [openModal, setOpenModal] = useState(false);
+  // Modales
+  const [openModal, setOpenModal] = useState(false); // Modal Cliente
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // <--- NUEVO MODAL ÉXITO
+  
   const [nuevoClienteNombre, setNuevoClienteNombre] = useState('');
   const [nuevoClienteEmail, setNuevoClienteEmail] = useState('');
+
+  // Generar Horarios
+  const horariosDisponibles = [];
+  for (let i = 7; i <= 20; i++) {
+    const horaStr = i < 10 ? `0${i}:00` : `${i}:00`;
+    horariosDisponibles.push(horaStr);
+  }
 
   useEffect(() => {
     cargarDatos();
@@ -45,21 +93,12 @@ export default function CrearOrden() {
             api.get('clientes/'),
             api.get('tecnicos/')
         ];
-        
-        // Solo cargamos supervisores si es Admin
-        if (userRol === 'Administrador') {
-            promesas.push(api.get('supervisores/'));
-        }
+        if (userRol === 'Administrador') promesas.push(api.get('supervisores/'));
 
         const respuestas = await Promise.all(promesas);
-        
         setListaClientes(respuestas[0].data);
         setListaTecnicos(respuestas[1].data);
-        
-        if (userRol === 'Administrador') {
-            setListaSupervisores(respuestas[2].data);
-        }
-
+        if (userRol === 'Administrador') setListaSupervisores(respuestas[2].data);
     } catch (error) {
         console.error("Error cargando listas", error);
     }
@@ -72,72 +111,82 @@ export default function CrearOrden() {
     formData.append('descripcion', descripcion);
     formData.append('direccion', direccion);
     formData.append('cliente', clienteId); 
-    formData.append('estado', 1); // Pendiente
+    formData.append('estado', 1); 
     
-    if (tecnicoId) formData.append('tecnico', tecnicoId);
-    if (fechaInicio) formData.append('fecha_inicio', fechaInicio);
-    if (foto) formData.append('foto_referencia', foto);
-
-    // Si es Admin y seleccionó supervisor, lo mandamos.
-    // Si es Supervisor, el backend lo asigna solo.
-    if (userRol === 'Administrador' && supervisorId) {
-        formData.append('supervisor', supervisorId);
+    if (coords) {
+        formData.append('latitud', coords.lat.toFixed(6));
+        formData.append('longitud', coords.lng.toFixed(6));
     }
+
+    if (tecnicoId) formData.append('tecnico', tecnicoId);
+    if (fechaSeleccionada && horaSeleccionada) {
+        formData.append('fecha_inicio', `${fechaSeleccionada}T${horaSeleccionada}`);
+    }
+    if (foto) formData.append('foto_referencia', foto);
+    if (userRol === 'Administrador' && supervisorId) formData.append('supervisor', supervisorId);
 
     try {
       await api.post('ordenes/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      alert('¡Orden creada exitosamente!');
       
-      // Redirigir según rol
-      if (userRol === 'Supervisor') navigate('/panel-supervisor');
-      else navigate('/calendario');
+      // --- CAMBIO: EN VEZ DE ALERT, MOSTRAMOS EL MODAL ---
+      setShowSuccessModal(true); 
 
     } catch (error) {
       console.error(error);
-      alert('Error al crear la orden. Verifica los datos.');
+      if (error.response && error.response.data) {
+          alert(`Error: ${JSON.stringify(error.response.data)}`);
+      } else {
+          alert('Error al crear la orden.');
+      }
     }
+  };
+
+  // --- FUNCIÓN PARA CERRAR Y REDIRIGIR ---
+  const handleCloseSuccess = () => {
+      setShowSuccessModal(false);
+      if (userRol === 'Supervisor') navigate('/panel-supervisor');
+      else navigate('/calendario');
   };
 
   const handleCrearCliente = async () => {
-    if(!nuevoClienteNombre) return alert("Escribe un nombre");
-    try {
-        const payload = {
-            username: nuevoClienteNombre.replace(/\s+/g, '_').toLowerCase() + Math.floor(Math.random() * 1000),
-            first_name: nuevoClienteNombre,
-            email: nuevoClienteEmail
-        };
-        const response = await api.post('clientes/', payload);
-        const resClientes = await api.get('clientes/'); 
-        setListaClientes(resClientes.data);
-        setClienteId(response.data.id); 
-        setOpenModal(false);
-        setNuevoClienteNombre('');
-        setNuevoClienteEmail('');
-    } catch (error) {
-        console.error("Error creando cliente", error);
-        alert("Error al crear cliente");
-    }
+      if(!nuevoClienteNombre) return alert("Escribe un nombre");
+      try {
+          const payload = {
+              username: nuevoClienteNombre.replace(/\s+/g, '_').toLowerCase() + Math.floor(Math.random() * 1000),
+              first_name: nuevoClienteNombre,
+              email: nuevoClienteEmail
+          };
+          const response = await api.post('clientes/', payload);
+          const resClientes = await api.get('clientes/'); 
+          setListaClientes(resClientes.data);
+          setClienteId(response.data.id); 
+          setOpenModal(false);
+          setNuevoClienteNombre('');
+          setNuevoClienteEmail('');
+      } catch (error) {
+          console.error(error);
+      }
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
+    <Container maxWidth="md" sx={{ mt: 4, mb: 8 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h5" gutterBottom sx={{fontWeight: 'bold'}}>
-          Crear Orden de Trabajo
+          Crear Orden con Geolocalización
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           
           <TextField
             label="Título del Trabajo"
-            placeholder="Ej: Instalación de Red LAN"
+            placeholder="Ej: Mantenimiento Preventivo"
             required fullWidth
             value={titulo} onChange={(e) => setTitulo(e.target.value)}
           />
 
-          {/* FILA: CLIENTE */}
+          {/* CLIENTE */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Autocomplete
                     fullWidth
@@ -146,14 +195,13 @@ export default function CrearOrden() {
                     value={listaClientes.find(c => c.id === clienteId) || null}
                     onChange={(event, newValue) => setClienteId(newValue ? newValue.id : '')}
                     renderInput={(params) => <TextField {...params} label="Cliente" required />}
-                    noOptionsText="No encontrado"
                 />
                 <IconButton color="primary" onClick={() => setOpenModal(true)}>
                     <AddCircleIcon fontSize="large" />
                 </IconButton>
           </Box>
 
-          {/* FILA: TÉCNICO Y SUPERVISOR */}
+          {/* TÉCNICO / SUPERVISOR */}
           <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
             <Autocomplete
                 sx={{ flex: 1 }}
@@ -163,8 +211,6 @@ export default function CrearOrden() {
                 onChange={(event, newValue) => setTecnicoId(newValue ? newValue.id : null)}
                 renderInput={(params) => <TextField {...params} label="Técnico Responsable" required />}
             />
-
-            {/* SOLO EL ADMINISTRADOR PUEDE ELEGIR SUPERVISOR */}
             {userRol === 'Administrador' && (
                 <Autocomplete
                     sx={{ flex: 1 }}
@@ -177,24 +223,65 @@ export default function CrearOrden() {
             )}
           </Box>
 
-          <TextField
-              label="Fecha y Hora de Inicio"
-              type="datetime-local"
-              fullWidth required
-              InputLabelProps={{ shrink: true }}
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-          />
+          {/* FECHA Y HORA */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                  label="Fecha de Inicio"
+                  type="date"
+                  fullWidth required
+                  InputLabelProps={{ shrink: true }}
+                  value={fechaSeleccionada}
+                  onChange={(e) => setFechaSeleccionada(e.target.value)}
+              />
+              <TextField
+                  select label="Hora" required
+                  value={horaSeleccionada}
+                  onChange={(e) => setHoraSeleccionada(e.target.value)}
+                  sx={{ minWidth: 150 }}
+              >
+                  {horariosDisponibles.map((hora) => (
+                      <MenuItem key={hora} value={hora}>{hora}</MenuItem>
+                  ))}
+              </TextField>
+          </Box>
+
+          {/* MAPA GPS */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocationOnIcon color="error" fontSize="small"/> Ubicación Exacta (Selecciona en el mapa)
+            </Typography>
+            
+            <Box sx={{ height: '300px', width: '100%', border: '1px solid #ccc', borderRadius: 2, overflow: 'hidden' }}>
+                <MapContainer 
+                    center={[-1.05458, -80.45445]} // Portoviejo
+                    zoom={14} 
+                    style={{ height: '100%', width: '100%' }}
+                >
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <LocationMarker setPosicion={setCoords} setDireccion={setDireccion} />
+                </MapContainer>
+            </Box>
+            
+            {coords && (
+                <Typography variant="caption" color="text.secondary">
+                    GPS Seleccionado: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                </Typography>
+            )}
+          </Box>
 
           <TextField
-            label="Dirección / Ubicación"
+            label="Referencia escrita (Dirección)"
             fullWidth
             value={direccion} onChange={(e) => setDireccion(e.target.value)}
+            helperText="Ej: Casa esquinera color verde, frente al parque."
           />
 
           <TextField
             label="Descripción Detallada"
-            multiline rows={3} fullWidth
+            multiline rows={2} fullWidth
             value={descripcion} onChange={(e) => setDescripcion(e.target.value)}
           />
 
@@ -211,6 +298,36 @@ export default function CrearOrden() {
           </Button>
         </Box>
       </Paper>
+
+      {/* --- MODAL DE ÉXITO (POP UP BONITO) --- */}
+      <Dialog 
+        open={showSuccessModal} 
+        onClose={handleCloseSuccess}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, textAlign: 'center', p: 2 } }}
+      >
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <CheckCircleOutlineIcon color="success" sx={{ fontSize: 80 }} />
+              <Typography variant="h5" fontWeight="bold" color="text.primary">
+                  ¡Orden Creada!
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                  El trabajo ha sido registrado exitosamente y notificado al equipo.
+              </Typography>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+              <Button 
+                variant="contained" 
+                color="success" 
+                size="large" 
+                onClick={handleCloseSuccess}
+                sx={{ minWidth: 120, borderRadius: 2 }}
+              >
+                  Aceptar
+              </Button>
+          </DialogActions>
+      </Dialog>
 
       {/* MODAL CLIENTE */}
       <Dialog open={openModal} onClose={() => setOpenModal(false)}>

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { 
-  AppBar, Toolbar, Typography, Box, Chip, IconButton, 
-  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider 
+  AppBar, Toolbar, Typography, Box, IconButton, 
+  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider,
+  Avatar, Menu, MenuItem 
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 
 // Iconos
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard'; 
 import AddCircleIcon from '@mui/icons-material/AddCircle'; 
@@ -19,6 +19,10 @@ import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 export default function Navbar() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false); 
+  
+  // Estado para el menú del usuario (Avatar)
+  const [anchorEl, setAnchorEl] = useState(null);
+  const openMenu = Boolean(anchorEl);
 
   const usuario = localStorage.getItem('user_name');
   const rol = localStorage.getItem('user_rol');
@@ -26,6 +30,14 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.clear();
     navigate('/login');
+  };
+
+  // Manejadores del menú de usuario
+  const handleMenuClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleMenuClose = () => {
+    setAnchorEl(null);
   };
 
   const toggleDrawer = (open) => (event) => {
@@ -106,19 +118,12 @@ export default function Navbar() {
           </ListItem>
         )}
       </List>
+      
+      {/* SECCIÓN ELIMINADA:
+         Aquí estaba antes el botón de cerrar sesión duplicado.
+         Ahora solo existe en el menú del perfil.
+      */}
 
-      <Divider />
-
-      <List>
-        <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout}>
-            <ListItemIcon>
-              <LogoutIcon color="error"/>
-            </ListItemIcon>
-            <ListItemText primary="Cerrar Sesión" sx={{ color: 'error.main' }} />
-          </ListItemButton>
-        </ListItem>
-      </List>
     </Box>
   );
 
@@ -137,8 +142,7 @@ export default function Navbar() {
             <MenuIcon />
           </IconButton>
 
-          {/* --- AQUÍ ESTÁ EL CAMBIO CLAVE --- */}
-          {/* Usamos /logo.png porque ahora el archivo vive en la carpeta public */}
+          {/* Logo y Título */}
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
             <img src="/logo.png" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
             <Typography variant="h6" component="div">
@@ -146,16 +150,89 @@ export default function Navbar() {
             </Typography>
           </Box>
           
+          {/* Perfil de Usuario - Opción Dropdown */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {usuario ? (
-                <Chip 
-                    icon={<AccountCircleIcon />} 
-                    label={`${usuario} (${rol})`} 
-                    color="secondary" 
-                    variant="filled"
-                    sx={{ color: 'white', fontWeight: 'bold' }}
-                />
-            ) : null}
+            {usuario && (
+                <>
+                  {/* Botón Avatar */}
+                  <IconButton 
+                    onClick={handleMenuClick}
+                    size="small"
+                    aria-controls={openMenu ? 'account-menu' : undefined}
+                    aria-haspopup="true"
+                    aria-expanded={openMenu ? 'true' : undefined}
+                  >
+                    <Avatar 
+                        sx={{ 
+                        bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                        color: '#fff', 
+                        fontWeight: 'bold',
+                        width: 40, 
+                        height: 40,
+                        border: '2px solid rgba(255,255,255,0.3)',
+                        transition: '0.3s',
+                        '&:hover': {
+                            bgcolor: 'rgba(255, 255, 255, 0.4)',
+                            transform: 'scale(1.05)'
+                        }
+                        }}
+                    >
+                        {usuario.charAt(0).toUpperCase()}
+                    </Avatar>
+                  </IconButton>
+
+                  {/* Menú Desplegable */}
+                  <Menu
+                    anchorEl={anchorEl}
+                    id="account-menu"
+                    open={openMenu}
+                    onClose={handleMenuClose}
+                    onClick={handleMenuClose}
+                    PaperProps={{
+                      elevation: 0,
+                      sx: {
+                        overflow: 'visible',
+                        filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                        mt: 1.5,
+                        minWidth: 180,
+                        '&:before': {
+                          content: '""',
+                          display: 'block',
+                          position: 'absolute',
+                          top: 0,
+                          right: 14,
+                          width: 10,
+                          height: 10,
+                          bgcolor: 'background.paper',
+                          transform: 'translateY(-50%) rotate(45deg)',
+                          zIndex: 0,
+                        },
+                      },
+                    }}
+                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                  >
+                    {/* Información del Usuario (No clickeable, solo visual) */}
+                    <Box sx={{ px: 2, py: 1.5, textAlign: 'center', bgcolor: '#f5f5f5', mb: 1 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                            {usuario}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 'bold' }}>
+                            {rol}
+                        </Typography>
+                    </Box>
+
+                    <Divider />
+
+                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main', mt: 1 }}>
+                      <ListItemIcon>
+                        <LogoutIcon fontSize="small" color="error" />
+                      </ListItemIcon>
+                      Cerrar Sesión
+                    </MenuItem>
+                  </Menu>
+                </>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
