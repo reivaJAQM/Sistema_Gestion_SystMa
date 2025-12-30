@@ -28,7 +28,10 @@ export default function Calendario() {
   const [loading, setLoading] = useState(true);
   
   const [listaEstados, setListaEstados] = useState([]);
+  
+  // 1. OBTENEMOS EL ID DEL USUARIO ADEMÁS DEL ROL
   const userRol = localStorage.getItem('user_rol'); 
+  const userId = parseInt(localStorage.getItem('user_id')); // <--- NUEVO
 
   const [modalOpen, setModalOpen] = useState(false);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
@@ -52,6 +55,9 @@ export default function Calendario() {
               descripcion: orden.descripcion,
               cliente: orden.cliente_nombre || 'No asignado',
               tecnico: orden.tecnico_nombre || 'No asignado',
+              // 2. GUARDAMOS EL ID DEL TÉCNICO PARA COMPARARLO DESPUÉS
+              tecnico_id: orden.tecnico, // <--- NUEVO
+              
               supervisor: orden.supervisor_nombre || 'No asignado',
               direccion: orden.direccion,
               lat: orden.latitud,
@@ -282,7 +288,6 @@ export default function Calendario() {
                     <Chip label="EQUIPO ASIGNADO" size="small" sx={{ color: '#6c757d', fontWeight: 500 }} />
                 </Divider>
 
-                {/* --- AQUI ESTA EL CAMBIO: Grid centrado con justifyContent="center" --- */}
                 <Grid container spacing={2} justifyContent="center" alignItems="center">
                     {[
                         { label: 'Cliente', val: ordenSeleccionada.cliente, icon: <PersonIcon />, color: '#1976d2', bg: '#e3f2fd' },
@@ -323,7 +328,11 @@ export default function Calendario() {
                 Cerrar
               </Button>
 
-              {userRol === 'Tecnico' && (
+              {/* 3. AQUÍ ESTÁ LA MAGIA: 
+                  Verificamos que sea Técnico Y QUE EL ID DEL TÉCNICO COINCIDA CON EL SUYO.
+                  Si no coincide, este bloque simplemente no se renderiza.
+              */}
+              {userRol === 'Tecnico' && ordenSeleccionada.tecnico_id === userId && (
                 <Box>
                     {ordenSeleccionada.estado === 'Pendiente' && (
                         <Button 
