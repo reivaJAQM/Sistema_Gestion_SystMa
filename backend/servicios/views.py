@@ -11,6 +11,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from xhtml2pdf import pisa
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
 # Importación de modelos y serializadores
 from .models import Estado, OrdenTrabajo, Avance
@@ -19,19 +21,15 @@ from .serializers import (
     AvanceSerializer, RegistroUsuarioSerializer
 )
 
-# --- PERSONALIZACIÓN DEL JWT (LOGIN) ---
+# ... (El código de MyTokenObtainPairSerializer y MyTokenObtainPairView se mantiene igual) ...
+
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        
-        # Datos básicos
         data['username'] = self.user.username
         data['email'] = self.user.email
-        
-        # --- ESTO ES LO IMPORTANTE ---
         data['user_id'] = self.user.id
         data['nombre_completo'] = self.user.first_name if self.user.first_name else self.user.username
-        # -----------------------------
 
         if self.user.is_superuser:
             data['rol'] = 'Administrador'
@@ -64,25 +62,42 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         if user.groups.filter(name='Supervisor').exists():
             serializer.save(supervisor=user)
         else:
-            # Si es Admin, guarda lo que venga en el request
             serializer.save()
 
+    # --- NUEVO MÉTODO PARA RESTRINGIR EDICIÓN ---
+    def perform_update(self, serializer):
+        user = self.request.user
+        orden = serializer.instance # La orden que se intenta modificar
+
+        # Validación: Si es técnico, solo puede editar SUS órdenes
+        if user.groups.filter(name='Tecnico').exists():
+            # Si la orden tiene técnico asignado y NO es el usuario actual
+            if orden.tecnico and orden.tecnico != user:
+                raise PermissionDenied("Solo el técnico asignado puede realizar cambios o gestionar esta orden.")
+        
+        serializer.save()
+    # --------------------------------------------
+
 class ClienteViewSet(viewsets.ModelViewSet):
+    # ... (Se mantiene igual)
     queryset = User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
 class SupervisorViewSet(viewsets.ModelViewSet):
+    # ... (Se mantiene igual)
     queryset = User.objects.filter(groups__name='Supervisor')
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
 class TecnicoViewSet(viewsets.ModelViewSet):
+    # ... (Se mantiene igual)
     queryset = User.objects.filter(groups__name='Tecnico')
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
 class AvanceViewSet(viewsets.ModelViewSet):
+    # ... (Se mantiene igual)
     queryset = Avance.objects.all().order_by('-creado_en')
     serializer_class = AvanceSerializer
 
@@ -94,48 +109,45 @@ class AvanceViewSet(viewsets.ModelViewSet):
         return queryset
 
 class RegistroUsuarioViewSet(viewsets.ModelViewSet):
+    # ... (Se mantiene igual)
     queryset = User.objects.all()
     serializer_class = RegistroUsuarioSerializer
-    # Solo el admin debería poder crear staff
     permission_classes = [IsAuthenticated]
 
-# --- GENERACIÓN DE PDF ---
-
+# ... (La función generar_reporte_pdf se mantiene igual) ...
 @api_view(['GET'])
 def generar_reporte_pdf(request, pk):
-    """
-    Genera un PDF de la orden de trabajo especificada por pk.
-    Incluye lógica para incrustar el logo desde la carpeta static.
-    """
-    # 1. Obtener datos
     orden = get_object_or_404(OrdenTrabajo, pk=pk)
     avances = orden.avances.all().order_by('creado_en')
-
-    # 2. Calcular ruta absoluta del logo
-    # Esto une la carpeta base del proyecto + 'static' + 'logo.png'
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo.png')
-
-    # 3. Preparar contexto para el template
     template_path = 'reporte_orden.html'
     context = {
         'orden': orden, 
         'avances': avances,
         'logo_path': logo_path
     }
-
-    # 4. Configurar respuesta HTTP como PDF
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="Reporte_Orden_{pk}.pdf"'
-
-    # 5. Renderizar y crear PDF
     template = get_template(template_path)
     html = template.render(context)
-
-    pisa_status = pisa.CreatePDF(
-       html, dest=response
-    )
-
+    pisa_status = pisa.CreatePDF(html, dest=response)
     if pisa_status.err:
        return HttpResponse('Error al generar PDF', status=500)
-    
     return response
+
+class DashboardStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Contamos las órdenes según su estado
+        total = OrdenTrabajo.objects.count()
+        pendientes = OrdenTrabajo.objects.filter(estado__nombre='Pendiente').count()
+        progreso = OrdenTrabajo.objects.filter(estado__nombre='En Progreso').count()
+        finalizados = OrdenTrabajo.objects.filter(estado__nombre='Finalizado').count()
+
+        return Response({
+            'total': total,
+            'pendientes': pendientes,
+            'en_progreso': progreso,
+            'finalizados': finalizados
+        })
