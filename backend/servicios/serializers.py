@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
-from .models import Estado, OrdenTrabajo, Avance  # <--- Importamos Avance
+from .models import Estado, OrdenTrabajo, Avance, FotoAvance 
 
 class ClienteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,12 +27,6 @@ class OrdenTrabajoSerializer(serializers.ModelSerializer):
         model = OrdenTrabajo
         fields = '__all__'
 
-# --- NUEVO SERIALIZER ---
-class AvanceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Avance
-        fields = '__all__'
-    
 # --- SERIALIZER PARA CREAR USUARIOS (STAFF) ---
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     rol = serializers.ChoiceField(choices=['Tecnico', 'Supervisor'], write_only=True)
@@ -54,6 +48,21 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
             grupo = Group.objects.get(name=rol_nombre)
             user.groups.add(grupo)
         except Group.DoesNotExist:
-            pass # O manejar el error si prefieres
+            pass 
             
         return user
+    
+# --- NUEVOS SERIALIZERS PARA BITÁCORA CON FOTOS ---
+
+class FotoAvanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FotoAvance
+        fields = ['id', 'foto']
+
+class AvanceSerializer(serializers.ModelSerializer):
+    # 'imagenes' hace match con el related_name='imagenes' definido en models.py
+    imagenes = FotoAvanceSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Avance
+        fields = ['id', 'orden', 'contenido', 'foto', 'creado_en', 'imagenes']

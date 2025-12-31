@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 # Importación de modelos y serializadores
-from .models import Estado, OrdenTrabajo, Avance
+from .models import Estado, OrdenTrabajo, Avance, FotoAvance
 from .serializers import (
     EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer, 
     AvanceSerializer, RegistroUsuarioSerializer
@@ -102,7 +102,6 @@ class TecnicoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
 class AvanceViewSet(viewsets.ModelViewSet):
-    # ... (Se mantiene igual)
     queryset = Avance.objects.all().order_by('-creado_en')
     serializer_class = AvanceSerializer
 
@@ -112,6 +111,36 @@ class AvanceViewSet(viewsets.ModelViewSet):
         if orden_id:
             queryset = queryset.filter(orden_id=orden_id)
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        orden_id = request.data.get('orden')
+        if orden_id:
+            orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
+            
+            # --- 1. BLOQUEO GLOBAL (ABSOLUTO) ---
+            # Si está Finalizado, NADIE puede escribir. Ni el Admin.
+            if orden.estado.nombre == 'Finalizado':
+                raise PermissionDenied("⛔ La orden está FINALIZADA y cerrada. No se pueden agregar más registros.")
+
+            # --- 2. BLOQUEO PARA TÉCNICOS ---
+            # Si NO está finalizada, revisamos si es Técnico para aplicarle sus restricciones específicas
+            es_tecnico = request.user.groups.filter(name='Tecnico').exists()
+            
+            if es_tecnico and orden.estado.nombre in ['En Revisión', 'Pendiente']:
+                 raise PermissionDenied("No puedes agregar avances en el estado actual de la orden.")
+
+        # ... (El resto del código de fotos sigue igual) ...
+        fotos = request.FILES.getlist('fotos')
+        
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        avance = serializer.save()
+
+        if fotos:
+            for f in fotos:
+                FotoAvance.objects.create(avance=avance, foto=f)
+        
+        return Response(self.get_serializer(avance).data, status=201)
 
 class RegistroUsuarioViewSet(viewsets.ModelViewSet):
     # ... (Se mantiene igual)

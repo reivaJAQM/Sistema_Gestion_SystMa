@@ -39,3 +39,11 @@ class Avance(models.Model):
 
     def __str__(self):
         return f"Avance {self.id} - {self.orden.titulo}"
+    
+# --- NUEVO MODELO PARA MÚLTIPLES FOTOS ---
+class FotoAvance(models.Model):
+    avance = models.ForeignKey(Avance, related_name='imagenes', on_delete=models.CASCADE)
+    foto = models.ImageField(upload_to='avances/')
+    
+    def __str__(self):
+        return f"Foto de Avance {self.avance.id}"

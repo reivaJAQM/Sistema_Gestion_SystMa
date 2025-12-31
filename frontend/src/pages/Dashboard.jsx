@@ -18,6 +18,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import MoreVertIcon from '@mui/icons-material/MoreVert'; 
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'; // <--- NUEVO ICONO
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -32,14 +33,10 @@ export default function Dashboard() {
   const userId = parseInt(localStorage.getItem('user_id'));
 
   useEffect(() => {
-    // --- 1. BLOQUEO DE SEGURIDAD ---
-    // El Dashboard es exclusivo para gestión (Admin/Supervisor).
-    // Si un técnico intenta entrar por URL directa, lo mandamos a su agenda.
     if (userRol === 'Tecnico') {
         navigate('/calendario');
         return;
     }
-
     fetchData();
   }, [userRol, navigate]);
 
@@ -48,12 +45,10 @@ export default function Dashboard() {
       const { data } = await api.get('ordenes/');
       
       const total = data.length;
-      
       const pendientes = data.filter(o => o.estado_data?.nombre === 'Pendiente').length;
       const en_proceso = data.filter(o => o.estado_data?.nombre === 'En Progreso').length;
       const finalizados = data.filter(o => o.estado_data?.nombre === 'Finalizado').length;
 
-      // Filtro inteligente para revisiones
       let en_revision = 0;
       if (userRol === 'Administrador') {
           en_revision = data.filter(o => o.estado_data?.nombre === 'En Revisión').length;
@@ -79,7 +74,6 @@ export default function Dashboard() {
     }
   };
 
-  // --- KPI CARD PREMIUM ---
   const KpiCard = ({ title, value, icon, color, onClick }) => (
     <Card 
       sx={{ 
@@ -124,17 +118,15 @@ export default function Dashboard() {
     </Card>
   );
 
-  // Si es técnico, mostramos carga mientras se redirige (para que no vea nada del dashboard)
   if (userRol === 'Tecnico') return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
-  
   if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', pb: 4 }}>
         <Container maxWidth="xl" sx={{ pt: 4 }}>
         
-        {/* --- HEADER --- */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* --- HEADER CON NUEVOS BOTONES --- */}
+        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             <Box>
                 <Typography variant="h4" fontWeight="900" sx={{ color: '#1a202c', letterSpacing: '-0.03em' }}>
                     Hola, {usuario} 👋
@@ -143,18 +135,34 @@ export default function Dashboard() {
                     Resumen de operaciones · {new Date().toLocaleDateString()}
                 </Typography>
             </Box>
-            <Button 
-                variant="contained" size="large"
-                startIcon={<CalendarMonthIcon />}
-                onClick={() => navigate('/calendario')}
-                sx={{ 
-                    borderRadius: '12px', textTransform: 'none', fontWeight: 'bold',
-                    boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)', background: '#0070f3',
-                    '&:hover': { background: '#0761d1' }
-                }}
-            >
-                Ver Calendario
-            </Button>
+            
+            {/* Contenedor de Botones de Acción */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button 
+                    variant="contained" size="large"
+                    startIcon={<AddCircleOutlineIcon />}
+                    onClick={() => navigate('/nueva-orden')}
+                    sx={{ 
+                        borderRadius: '12px', textTransform: 'none', fontWeight: 'bold',
+                        background: '#10b981', // Color verde esmeralda
+                        '&:hover': { background: '#059669' }
+                    }}
+                >
+                    Agendar Trabajo
+                </Button>
+
+                <Button 
+                    variant="contained" size="large"
+                    startIcon={<CalendarMonthIcon />}
+                    onClick={() => navigate('/calendario')}
+                    sx={{ 
+                        borderRadius: '12px', textTransform: 'none', fontWeight: 'bold',
+                        '&:hover': { background: '#0761d1' }
+                    }}
+                >
+                    Ver Calendario
+                </Button>
+            </Box>
         </Box>
 
         {/* --- GRID DE KPIS --- */}
@@ -167,29 +175,18 @@ export default function Dashboard() {
                 title="Total Órdenes" value={stats.total} icon={<AssignmentIcon />} color="#5c6bc0" 
                 onClick={() => navigate('/todos-los-trabajos')} 
             />
-
-            {/* PENDIENTES -> Filtra por 'Pendiente' */}
             <KpiCard 
                 title="Pendientes" value={stats.pendientes} icon={<HourglassEmptyIcon />} color="#757575" 
                 onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'Pendiente' } })}
             />
-
-            {/* EN EJECUCIÓN -> Filtra por 'En Progreso' */}
             <KpiCard 
                 title="En Ejecución" value={stats.en_proceso} icon={<EngineeringIcon />} color="#0070f3" 
                 onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'En Progreso' } })}
             />
-            
-            {/* POR REVISAR -> Sigue yendo al Panel de Supervisor (es un flujo distinto) */}
             <KpiCard 
-                title="Por Revisar" 
-                value={stats.en_revision} 
-                icon={<WarningIcon />} 
-                color="#f59e0b" 
+                title="Por Revisar" value={stats.en_revision} icon={<WarningIcon />} color="#f59e0b" 
                 onClick={stats.en_revision > 0 ? () => navigate('/todos-los-trabajos', { state: { filtro: 'En Revisión' } }) : undefined} 
             />
-            
-            {/* FINALIZADOS -> Filtra por 'Finalizado' */}
             <KpiCard 
                 title="Finalizados" value={stats.finalizados} icon={<CheckCircleIcon />} color="#10b981" 
                 onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'Finalizado' } })}
@@ -256,7 +253,6 @@ export default function Dashboard() {
                         </Alert>
                         <Button 
                             variant="contained" color="warning" fullWidth size="large"
-                            // CAMBIO AQUÍ TAMBIÉN
                             onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'En Revisión' } })}
                             sx={{ borderRadius: '12px', fontWeight: 'bold', boxShadow: 'none' }}
                         >
@@ -265,7 +261,6 @@ export default function Dashboard() {
                     </Box>
                 )}
             </Paper>
-
         </Box>
         </Container>
     </Box>

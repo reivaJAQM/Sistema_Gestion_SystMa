@@ -6,7 +6,6 @@ import {
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
-import PlayCircleFilledWhiteIcon from '@mui/icons-material/PlayCircleFilledWhite';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,23 +14,22 @@ export default function MisTrabajos() {
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0); 
   const [estados, setEstados] = useState([]); 
-  const [notificacion, setNotificacion] = useState({ open: false, mensaje: '' });
+  
+  // Eliminamos el estado 'notificacion' si ya no lo vamos a usar para el inicio rápido
+  // const [notificacion, setNotificacion] = useState({ open: false, mensaje: '' });
   
   const navigate = useNavigate();
   const currentUserId = parseInt(localStorage.getItem('user_id'));
-  const userRol = localStorage.getItem('user_rol'); // <--- Obtenemos el rol
+  const userRol = localStorage.getItem('user_rol');
 
   useEffect(() => {
-    // --- 1. BLOQUEO DE SEGURIDAD ---
-    // Si NO es Técnico, lo expulsamos.
     if (userRol !== 'Tecnico') {
         alert("Acceso denegado. Esta sección es exclusiva para el personal técnico.");
         navigate('/dashboard');
         return;
     }
-
     fetchDatos();
-  }, [userRol, navigate]); // Añadimos dependencias para evitar warnings
+  }, [userRol, navigate]);
 
   const fetchDatos = async () => {
     try {
@@ -39,12 +37,9 @@ export default function MisTrabajos() {
         api.get('ordenes/'),
         api.get('estados/')
       ]);
-      
       const misOrdenes = resOrdenes.data.filter(orden => orden.tecnico === currentUserId);
-      
       setOrdenes(misOrdenes);
       setEstados(resEstados.data);
-
     } catch (error) {
       console.error("Error cargando datos", error);
     } finally {
@@ -56,40 +51,8 @@ export default function MisTrabajos() {
     setTabValue(newValue);
   };
 
-  // --- LÓGICA DE INICIO (Respetando la fecha programada) ---
-  const handleIniciarTrabajo = async (ordenId) => {
-    try {
-      const estadoProgreso = estados.find(e => e.nombre === 'En Progreso');
-      if (!estadoProgreso) {
-        alert("Error: No existe el estado 'En Progreso' en el sistema.");
-        return;
-      }
-
-      // Solo cambiamos el estado, NO la fecha
-      const datosActualizacion = {
-        estado: estadoProgreso.id
-      };
-
-      await api.patch(`ordenes/${ordenId}/`, datosActualizacion);
-
-      // Optimistic Update
-      setOrdenes(prevOrdenes => prevOrdenes.map(orden => {
-        if (orden.id === ordenId) {
-          return { 
-            ...orden, 
-            estado_data: estadoProgreso 
-          };
-        }
-        return orden;
-      }));
-
-      setNotificacion({ open: true, mensaje: '¡Trabajo iniciado! Estado actualizado.' });
-
-    } catch (error) {
-      console.error("Error al iniciar trabajo", error);
-      alert("Hubo un error al intentar iniciar el trabajo.");
-    }
-  };
+  // --- SE ELIMINÓ LA FUNCIÓN handleIniciarTrabajo ---
+  // Ahora la acción de iniciar se hace exclusivamente dentro del detalle.
 
   const pendientes = ordenes.filter(o => o.estado_data?.nombre !== 'Finalizado');
   const historial = ordenes.filter(o => o.estado_data?.nombre === 'Finalizado');
@@ -110,9 +73,6 @@ export default function MisTrabajos() {
     return (
         <Grid container spacing={3} sx={{ mt: 1 }}>
           {lista.map((orden) => {
-            
-            const trabajoIniciado = orden.estado_data?.nombre !== 'Pendiente';
-
             return (
               <Grid item xs={12} md={6} lg={4} key={orden.id}>
                 <Card elevation={esHistorial ? 1 : 4} sx={{ 
@@ -153,39 +113,18 @@ export default function MisTrabajos() {
                     </Box>
                   </CardContent>
                   
+                  {/* --- AQUÍ ESTÁ EL CAMBIO PRINCIPAL --- */}
                   <CardActions sx={{ px: 2, pb: 2 }}>
-                    
-                    {esHistorial ? (
-                        <Button 
-                            variant="outlined" color="secondary"
-                            startIcon={<VisibilityIcon />}
-                            onClick={() => navigate(`/trabajo/${orden.id}`)}
-                            fullWidth sx={{ borderRadius: 2 }}
-                        >
-                            Ver Detalles
-                        </Button>
-                    ) : (
-                        trabajoIniciado ? (
-                            <Button 
-                                variant="contained" color="primary"
-                                startIcon={<VisibilityIcon />}
-                                onClick={() => navigate(`/trabajo/${orden.id}`)}
-                                fullWidth sx={{ borderRadius: 2 }}
-                            >
-                                Gestionar / Bitácora
-                            </Button>
-                        ) : (
-                            <Button 
-                                variant="contained" color="success"
-                                startIcon={<PlayCircleFilledWhiteIcon />}
-                                onClick={() => handleIniciarTrabajo(orden.id)}
-                                fullWidth sx={{ borderRadius: 2, fontWeight: 'bold' }}
-                            >
-                                ▶ Iniciar Trabajo
-                            </Button>
-                        )
-                    )}
-
+                    <Button 
+                        variant="contained" // Usamos 'contained' para que resalte
+                        color="primary"
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => navigate(`/trabajo/${orden.id}`)}
+                        fullWidth 
+                        sx={{ borderRadius: 2 }}
+                    >
+                        Ver Detalles
+                    </Button>
                   </CardActions>
                 </Card>
               </Grid>
@@ -195,11 +134,9 @@ export default function MisTrabajos() {
     );
   };
 
-  // Render condicional: Si no es Técnico, mostramos carga mientras el useEffect redirige
   if (userRol !== 'Tecnico') return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
-  
   if (loading) return <Box sx={{ display:'flex', justifyContent:'center', mt:5 }}><CircularProgress /></Box>;
-  if (!currentUserId) return <Alert severity="warning" sx={{ mt: 4 }}>Error: Usuario no identificado. Cierra sesión e intenta de nuevo.</Alert>;
+  if (!currentUserId) return <Alert severity="warning" sx={{ mt: 4 }}>Error: Usuario no identificado.</Alert>;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -221,13 +158,6 @@ export default function MisTrabajos() {
 
       {tabValue === 0 && <RenderLista lista={pendientes} esHistorial={false} />}
       {tabValue === 1 && <RenderLista lista={historial} esHistorial={true} />}
-
-      <Snackbar
-        open={notificacion.open}
-        autoHideDuration={4000}
-        onClose={() => setNotificacion({ ...notificacion, open: false })}
-        message={notificacion.mensaje}
-      />
 
     </Container>
   );

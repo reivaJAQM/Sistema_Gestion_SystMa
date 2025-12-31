@@ -7,7 +7,7 @@ import {
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // <--- Nuevo Icono
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -71,7 +71,7 @@ export default function CrearOrden() {
 
   // Modales
   const [openModal, setOpenModal] = useState(false); // Modal Cliente
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // <--- NUEVO MODAL ÉXITO
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal Éxito
   
   const [nuevoClienteNombre, setNuevoClienteNombre] = useState('');
   const [nuevoClienteEmail, setNuevoClienteEmail] = useState('');
@@ -126,11 +126,9 @@ export default function CrearOrden() {
     if (userRol === 'Administrador' && supervisorId) formData.append('supervisor', supervisorId);
 
     try {
-      await api.post('ordenes/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // CORRECCIÓN: Quitamos el header manual. Axios detecta el FormData y lo pone correctamente.
+      await api.post('ordenes/', formData);
       
-      // --- CAMBIO: EN VEZ DE ALERT, MOSTRAMOS EL MODAL ---
       setShowSuccessModal(true); 
 
     } catch (error) {
@@ -146,8 +144,7 @@ export default function CrearOrden() {
   // --- FUNCIÓN PARA CERRAR Y REDIRIGIR ---
   const handleCloseSuccess = () => {
       setShowSuccessModal(false);
-      if (userRol === 'Supervisor') navigate('/panel-supervisor');
-      else navigate('/calendario');
+      navigate('/calendario');
   };
 
   const handleCrearCliente = async () => {
@@ -285,13 +282,51 @@ export default function CrearOrden() {
             value={descripcion} onChange={(e) => setDescripcion(e.target.value)}
           />
 
-          <Button
-            variant="outlined" component="label" startIcon={<PhotoCamera />}
-            sx={{ alignSelf: 'start' }}
-          >
-            Subir Foto Referencia
-            <input type="file" hidden accept="image/*" onChange={(e) => setFoto(e.target.files[0])} />
-          </Button>
+          {/* --- SECCIÓN DE FOTO MEJORADA CON PREVISUALIZACIÓN --- */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'start' }}>
+            <Button
+              variant={foto ? "contained" : "outlined"} 
+              component="label" 
+              color={foto ? "success" : "primary"}
+              startIcon={<PhotoCamera />}
+            >
+              {foto ? "Cambiar Foto" : "Subir Foto Referencia"}
+              <input 
+                type="file" 
+                hidden 
+                accept="image/*" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setFoto(e.target.files[0]);
+                  }
+                }} 
+              />
+            </Button>
+
+            {/* PREVISUALIZACIÓN */}
+            {foto && (
+              <Box 
+                sx={{ 
+                  mt: 1, 
+                  p: 1, 
+                  border: '1px dashed #ccc', 
+                  borderRadius: 2, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center' 
+                }}
+              >
+                <img 
+                  src={URL.createObjectURL(foto)} 
+                  alt="Previsualización" 
+                  style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '4px' }} 
+                />
+                <Typography variant="caption" sx={{ mt: 1, color: 'text.secondary' }}>
+                  {foto.name}
+                </Typography>
+              </Box>
+            )}
+          </Box>
 
           <Button type="submit" variant="contained" size="large" sx={{ mt: 2 }}>
             Generar Orden
