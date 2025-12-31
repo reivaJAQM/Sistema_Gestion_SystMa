@@ -12,8 +12,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import BuildIcon from '@mui/icons-material/Build';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MapIcon from '@mui/icons-material/Map'; 
+import VisibilityIcon from '@mui/icons-material/Visibility'; // Icono para el botón de detalle
 
 // --- FULLCALENDAR ---
 import FullCalendar from '@fullcalendar/react';
@@ -31,7 +31,7 @@ export default function Calendario() {
   
   // 1. OBTENEMOS EL ID DEL USUARIO ADEMÁS DEL ROL
   const userRol = localStorage.getItem('user_rol'); 
-  const userId = parseInt(localStorage.getItem('user_id')); // <--- NUEVO
+  const userId = parseInt(localStorage.getItem('user_id'));
 
   const [modalOpen, setModalOpen] = useState(false);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
@@ -55,9 +55,7 @@ export default function Calendario() {
               descripcion: orden.descripcion,
               cliente: orden.cliente_nombre || 'No asignado',
               tecnico: orden.tecnico_nombre || 'No asignado',
-              // 2. GUARDAMOS EL ID DEL TÉCNICO PARA COMPARARLO DESPUÉS
-              tecnico_id: orden.tecnico, // <--- NUEVO
-              
+              tecnico_id: orden.tecnico,
               supervisor: orden.supervisor_nombre || 'No asignado',
               direccion: orden.direccion,
               lat: orden.latitud,
@@ -328,10 +326,7 @@ export default function Calendario() {
                 Cerrar
               </Button>
 
-              {/* 3. AQUÍ ESTÁ LA MAGIA: 
-                  Verificamos que sea Técnico Y QUE EL ID DEL TÉCNICO COINCIDA CON EL SUYO.
-                  Si no coincide, este bloque simplemente no se renderiza.
-              */}
+              {/* --- BOTONES PARA EL TÉCNICO (MANTENEMOS TU LÓGICA) --- */}
               {userRol === 'Tecnico' && ordenSeleccionada.tecnico_id === userId && (
                 <Box>
                     {ordenSeleccionada.estado === 'Pendiente' && (
@@ -363,6 +358,22 @@ export default function Calendario() {
                     )}
                 </Box>
               )}
+
+              {/* --- NUEVO: BOTÓN PARA ADMIN Y SUPERVISOR --- 
+                  Este es el cambio que pediste: Un botón directo a la página de detalle.
+              */}
+              {userRol !== 'Tecnico' && (
+                  <Button 
+                    variant="contained" 
+                    color="primary" // O usa 'info' si prefieres otro azul
+                    endIcon={<VisibilityIcon />}
+                    onClick={() => navigate(`/trabajo/${ordenSeleccionada.id}`)}
+                    sx={{ borderRadius: 2, boxShadow: 2, fontWeight: 'bold' }}
+                  >
+                    Ver Expediente
+                  </Button>
+              )}
+
             </DialogActions>
           </>
         )}

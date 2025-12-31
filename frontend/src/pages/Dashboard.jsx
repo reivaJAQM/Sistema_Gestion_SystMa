@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Container, Paper, Typography, Box, CircularProgress, 
-  Card, CardContent, Divider, Button, Alert, IconButton
+  Card, CardContent, Divider, Button, Alert
 } from '@mui/material';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell 
@@ -32,8 +32,16 @@ export default function Dashboard() {
   const userId = parseInt(localStorage.getItem('user_id'));
 
   useEffect(() => {
+    // --- 1. BLOQUEO DE SEGURIDAD ---
+    // El Dashboard es exclusivo para gestión (Admin/Supervisor).
+    // Si un técnico intenta entrar por URL directa, lo mandamos a su agenda.
+    if (userRol === 'Tecnico') {
+        navigate('/calendario');
+        return;
+    }
+
     fetchData();
-  }, []);
+  }, [userRol, navigate]);
 
   const fetchData = async () => {
     try {
@@ -41,25 +49,18 @@ export default function Dashboard() {
       
       const total = data.length;
       
-      // Filtros Estándar
       const pendientes = data.filter(o => o.estado_data?.nombre === 'Pendiente').length;
       const en_proceso = data.filter(o => o.estado_data?.nombre === 'En Progreso').length;
       const finalizados = data.filter(o => o.estado_data?.nombre === 'Finalizado').length;
 
-      // --- LÓGICA DE FILTRADO PARA 'EN REVISIÓN' ---
+      // Filtro inteligente para revisiones
       let en_revision = 0;
-
       if (userRol === 'Administrador') {
-          // El Admin ve TODO lo que está en revisión
           en_revision = data.filter(o => o.estado_data?.nombre === 'En Revisión').length;
       } else if (userRol === 'Supervisor') {
-          // El Supervisor solo ve LO SUYO
           en_revision = data.filter(o => 
               o.estado_data?.nombre === 'En Revisión' && o.supervisor === userId
           ).length;
-      } else {
-          // El Técnico NO revisa nada, así que para él es 0 (evita alertas falsas)
-          en_revision = 0;
       }
 
       setStats({ total, pendientes, en_proceso, en_revision, finalizados });
@@ -102,9 +103,7 @@ export default function Dashboard() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
            <Box sx={{ 
                bgcolor: `${color}15`, 
-               p: 1.5, 
-               borderRadius: '16px', 
-               color: color, 
+               p: 1.5, borderRadius: '16px', color: color, 
                display: 'flex', alignItems: 'center', justifyContent: 'center',
                boxShadow: `0 4px 12px ${color}30` 
            }}>
@@ -125,6 +124,9 @@ export default function Dashboard() {
     </Card>
   );
 
+  // Si es técnico, mostramos carga mientras se redirige (para que no vea nada del dashboard)
+  if (userRol === 'Tecnico') return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
+  
   if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
@@ -161,20 +163,37 @@ export default function Dashboard() {
             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(5, 1fr)' }, 
             gap: 3, mb: 4 
         }}>
-            <KpiCard title="Total Órdenes" value={stats.total} icon={<AssignmentIcon />} color="#5c6bc0" />
-            <KpiCard title="Pendientes" value={stats.pendientes} icon={<HourglassEmptyIcon />} color="#757575" />
-            <KpiCard title="En Ejecución" value={stats.en_proceso} icon={<EngineeringIcon />} color="#0070f3" />
+            <KpiCard 
+                title="Total Órdenes" value={stats.total} icon={<AssignmentIcon />} color="#5c6bc0" 
+                onClick={() => navigate('/todos-los-trabajos')} 
+            />
+
+            {/* PENDIENTES -> Filtra por 'Pendiente' */}
+            <KpiCard 
+                title="Pendientes" value={stats.pendientes} icon={<HourglassEmptyIcon />} color="#757575" 
+                onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'Pendiente' } })}
+            />
+
+            {/* EN EJECUCIÓN -> Filtra por 'En Progreso' */}
+            <KpiCard 
+                title="En Ejecución" value={stats.en_proceso} icon={<EngineeringIcon />} color="#0070f3" 
+                onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'En Progreso' } })}
+            />
             
-            {/* Solo hacemos clickeable esta tarjeta si hay algo que revisar */}
+            {/* POR REVISAR -> Sigue yendo al Panel de Supervisor (es un flujo distinto) */}
             <KpiCard 
                 title="Por Revisar" 
                 value={stats.en_revision} 
                 icon={<WarningIcon />} 
                 color="#f59e0b" 
-                onClick={stats.en_revision > 0 ? () => navigate('/panel-supervisor') : undefined} 
+                onClick={stats.en_revision > 0 ? () => navigate('/todos-los-trabajos', { state: { filtro: 'En Revisión' } }) : undefined} 
             />
             
-            <KpiCard title="Finalizados" value={stats.finalizados} icon={<CheckCircleIcon />} color="#10b981" />
+            {/* FINALIZADOS -> Filtra por 'Finalizado' */}
+            <KpiCard 
+                title="Finalizados" value={stats.finalizados} icon={<CheckCircleIcon />} color="#10b981" 
+                onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'Finalizado' } })}
+            />
         </Box>
 
         {/* --- SECCIÓN INFERIOR --- */}
@@ -227,17 +246,18 @@ export default function Dashboard() {
                             Todo en orden
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {userRol === 'Tecnico' ? 'Sigue trabajando duro.' : 'Sin revisiones pendientes.'}
+                            Sin revisiones pendientes.
                         </Typography>
                     </Box>
                 ) : (
                     <Box>
                         <Alert severity="warning" sx={{ mb: 2, borderRadius: '12px', '& .MuiAlert-icon': { fontSize: 24 } }}>
-                            <strong>{stats.en_revision} órdenes</strong> requieren tu aprobación.
+                            <strong>{stats.en_revision} órdenes</strong> requieren aprobación.
                         </Alert>
                         <Button 
                             variant="contained" color="warning" fullWidth size="large"
-                            onClick={() => navigate('/panel-supervisor')}
+                            // CAMBIO AQUÍ TAMBIÉN
+                            onClick={() => navigate('/todos-los-trabajos', { state: { filtro: 'En Revisión' } })}
                             sx={{ borderRadius: '12px', fontWeight: 'bold', boxShadow: 'none' }}
                         >
                             Revisar Ahora
