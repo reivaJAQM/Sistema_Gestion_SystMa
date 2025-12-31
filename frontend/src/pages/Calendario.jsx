@@ -11,9 +11,9 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
 import BuildIcon from '@mui/icons-material/Build';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import MapIcon from '@mui/icons-material/Map'; 
-import VisibilityIcon from '@mui/icons-material/Visibility'; // Icono para el botón de detalle
+import VisibilityIcon from '@mui/icons-material/Visibility'; 
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 // --- FULLCALENDAR ---
 import FullCalendar from '@fullcalendar/react';
@@ -27,9 +27,7 @@ export default function Calendario() {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  const [listaEstados, setListaEstados] = useState([]);
-  
-  // 1. OBTENEMOS EL ID DEL USUARIO ADEMÁS DEL ROL
+  // OBTENEMOS ROL Y ID
   const userRol = localStorage.getItem('user_rol'); 
   const userId = parseInt(localStorage.getItem('user_id'));
 
@@ -67,10 +65,6 @@ export default function Calendario() {
           }
       }));
       setEventos(eventosFormateados);
-
-      const responseEstados = await api.get('estados/');
-      setListaEstados(responseEstados.data);
-
     } catch (error) {
       console.error("Error cargando datos:", error);
     } finally {
@@ -90,29 +84,6 @@ export default function Calendario() {
   const handleCloseModal = () => {
     setModalOpen(false);
     setOrdenSeleccionada(null);
-  };
-
-  const cambiarEstado = async (nuevoNombreEstado) => {
-    if (!ordenSeleccionada) return;
-
-    const estadoObj = listaEstados.find(e => e.nombre === nuevoNombreEstado);
-    
-    if (!estadoObj) {
-      alert(`Error: El estado "${nuevoNombreEstado}" no existe.`);
-      return;
-    }
-
-    try {
-      await api.patch(`ordenes/${ordenSeleccionada.id}/`, {
-        estado: estadoObj.id
-      });
-      setModalOpen(false);
-      setLoading(true);
-      fetchData(); 
-    } catch (error) {
-      console.error("Error al actualizar estado:", error);
-      alert("Hubo un error al actualizar el estado.");
-    }
   };
 
   const renderEventContent = (eventInfo) => {
@@ -227,7 +198,6 @@ export default function Calendario() {
               )}
 
               <Stack spacing={3}>
-                
                 <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e9ecef' }}>
                     <Typography variant="body1" sx={{ color: '#495057', fontStyle: ordenSeleccionada.descripcion ? 'normal' : 'italic' }}>
                         {ordenSeleccionada.descripcion || "Sin descripción adicional."}
@@ -326,53 +296,19 @@ export default function Calendario() {
                 Cerrar
               </Button>
 
-              {/* --- BOTONES PARA EL TÉCNICO (MANTENEMOS TU LÓGICA) --- */}
-              {userRol === 'Tecnico' && ordenSeleccionada.tecnico_id === userId && (
-                <Box>
-                    {ordenSeleccionada.estado === 'Pendiente' && (
-                        <Button 
-                            variant="contained" 
-                            color="primary"
-                            startIcon={<PlayArrowIcon />}
-                            onClick={() => cambiarEstado('En Progreso')}
-                            sx={{ borderRadius: 2, boxShadow: 2 }}
-                        >
-                            Empezar
-                        </Button>
-                    )}
-
-                    {ordenSeleccionada.estado === 'En Progreso' && (
-                        <Button 
-                            variant="contained" 
-                            color="warning" 
-                            startIcon={<SupervisorAccountIcon />}
-                            onClick={() => cambiarEstado('En Revisión')}
-                            sx={{ borderRadius: 2, boxShadow: 2 }}
-                        >
-                            Solicitar Revisión
-                        </Button>
-                    )}
-
-                    {ordenSeleccionada.estado === 'En Revisión' && (
-                        <Chip label="Esperando Aprobación" color="warning" variant="outlined" sx={{ fontWeight: 'bold' }}/>
-                    )}
-                </Box>
-              )}
-
-              {/* --- NUEVO: BOTÓN PARA ADMIN Y SUPERVISOR --- 
-                  Este es el cambio que pediste: Un botón directo a la página de detalle.
+              {/* CAMBIO PRINCIPAL AQUÍ:
+                 Eliminamos la lógica compleja de botones y dejamos uno solo 
+                 que redirige a la página de detalles para TODOS los usuarios.
               */}
-              {userRol !== 'Tecnico' && (
-                  <Button 
-                    variant="contained" 
-                    color="primary" // O usa 'info' si prefieres otro azul
-                    endIcon={<VisibilityIcon />}
-                    onClick={() => navigate(`/trabajo/${ordenSeleccionada.id}`)}
-                    sx={{ borderRadius: 2, boxShadow: 2, fontWeight: 'bold' }}
-                  >
-                    Ver Expediente
-                  </Button>
-              )}
+              <Button 
+                variant="contained" 
+                color="primary" 
+                endIcon={userRol === 'Tecnico' ? <ArrowForwardIcon /> : <VisibilityIcon />}
+                onClick={() => navigate(`/trabajo/${ordenSeleccionada.id}`)}
+                sx={{ borderRadius: 2, boxShadow: 2, fontWeight: 'bold', px: 3 }}
+              >
+                {userRol === 'Tecnico' ? 'Ver Detalles' : 'Ver Detalles'}
+              </Button>
 
             </DialogActions>
           </>

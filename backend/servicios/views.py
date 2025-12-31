@@ -64,16 +64,21 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
-    # --- NUEVO MÉTODO PARA RESTRINGIR EDICIÓN ---
     def perform_update(self, serializer):
         user = self.request.user
         orden = serializer.instance # La orden que se intenta modificar
 
-        # Validación: Si es técnico, solo puede editar SUS órdenes
+        # 1. Validación para TÉCNICOS (Ya la tenías)
         if user.groups.filter(name='Tecnico').exists():
-            # Si la orden tiene técnico asignado y NO es el usuario actual
             if orden.tecnico and orden.tecnico != user:
                 raise PermissionDenied("Solo el técnico asignado puede realizar cambios o gestionar esta orden.")
+        
+        # 2. NUEVA Validación para SUPERVISORES (Aquí está la solución)
+        if user.groups.filter(name='Supervisor').exists():
+            # Si la orden tiene supervisor asignado y NO es el usuario actual... error.
+            # (El "orden.supervisor" asume que así se llama el campo en tu modelo, basado en tu perform_create)
+            if orden.supervisor and orden.supervisor != user:
+                raise PermissionDenied("No tienes permiso para modificar una orden que no te ha sido asignada.")
         
         serializer.save()
     # --------------------------------------------
