@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
-    Container, Paper, TextField, Button, Typography, Box, 
-    Alert, CircularProgress, InputAdornment 
+    Paper, TextField, Button, Typography, Box, 
+    Alert, CircularProgress, InputAdornment, Link 
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -25,7 +25,6 @@ export default function Login() {
         try {
             const response = await api.post('token/', { username, password });
             
-            // Guardamos los datos en el navegador
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
             localStorage.setItem('user_rol', response.data.rol);
@@ -34,17 +33,11 @@ export default function Login() {
 
             const rol = response.data.rol;
 
-            // --- LÓGICA DE REDIRECCIÓN ACTUALIZADA ---
-            if (rol === 'Administrador' || rol === 'Supervisor') {
-                // Los jefes van directo al Dashboard para ver el resumen
-                navigate('/dashboard');
-            } else if (rol === 'Tecnico') {
-                // Los técnicos van directo a su lista de trabajos pendientes
-                navigate('/mis-trabajos');
+            if (rol === 'Tecnico') {
+              navigate('/calendario'); // Técnicos van directo a su agenda
             } else {
-                // Clientes u otros roles (fallback)
-                navigate('/calendario');
-            }
+              navigate('/dashboard');  // Admin y Supervisor van al panel
+           }
 
         } catch (error) {
             console.error('Error login', error);
@@ -125,23 +118,42 @@ export default function Login() {
                         }}
                     />
 
-                    <TextField
-                        label="Contraseña"
-                        type="password"
-                        variant="outlined"
-                        fullWidth
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <LockOutlinedIcon color="action" />
-                                </InputAdornment>
-                            ),
-                            style: { borderRadius: 12 }
-                        }}
-                    />
+                    <Box>
+                        <TextField
+                            label="Contraseña"
+                            type="password"
+                            variant="outlined"
+                            fullWidth
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <LockOutlinedIcon color="action" />
+                                    </InputAdornment>
+                                ),
+                                style: { borderRadius: 12 }
+                            }}
+                        />
+                         {/* Enlace de Olvidaste tu contraseña */}
+                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                            <Link 
+                                component="button" 
+                                type="button"
+                                variant="caption" 
+                                underline="hover"
+                                onClick={() => console.log("Redirigir a recuperación")} // Cambia esto por navigate('/recuperar')
+                                sx={{ 
+                                    color: 'text.secondary', 
+                                    fontWeight: 500,
+                                    '&:hover': { color: 'primary.main' }
+                                }}
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </Link>
+                        </Box>
+                    </Box>
 
                     <Button 
                         type="submit" 
@@ -152,7 +164,7 @@ export default function Login() {
                         disableElevation 
                         startIcon={!loading && <LoginIcon />}
                         sx={{ 
-                            mt: 2, 
+                            mt: 1, 
                             py: 1.5, 
                             borderRadius: 3, 
                             fontSize: '1rem', 

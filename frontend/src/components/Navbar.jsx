@@ -8,8 +8,8 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Iconos
 import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard'; // Para el Dashboard Principal
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; // Para el Calendario
+import DashboardIcon from '@mui/icons-material/Dashboard'; 
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; 
 import AddCircleIcon from '@mui/icons-material/AddCircle'; 
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -33,7 +33,6 @@ export default function Navbar() {
     navigate('/login');
   };
 
-  // Manejadores del menú de usuario
   const handleMenuClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -141,7 +140,8 @@ export default function Navbar() {
 
   return (
     <>
-      <AppBar position="static">
+      {/* CAMBIO CLAVE AQUÍ: Usamos 'sticky' para que se quede fijo al hacer scroll */}
+      <AppBar position="sticky" sx={{ top: 0, zIndex: 1100 }}>
         <Toolbar>
           <IconButton
             size="large"
@@ -162,11 +162,10 @@ export default function Navbar() {
             </Typography>
           </Box>
           
-          {/* Perfil de Usuario - Opción Dropdown */}
+          {/* Perfil de Usuario */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {usuario && (
                 <>
-                  {/* Botón Avatar */}
                   <IconButton 
                     onClick={handleMenuClick}
                     size="small"
@@ -193,7 +192,6 @@ export default function Navbar() {
                     </Avatar>
                   </IconButton>
 
-                  {/* Menú Desplegable */}
                   <Menu
                     anchorEl={anchorEl}
                     id="account-menu"
@@ -224,7 +222,6 @@ export default function Navbar() {
                     transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                     anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                   >
-                    {/* Información del Usuario (No clickeable, solo visual) */}
                     <Box sx={{ px: 2, py: 1.5, textAlign: 'center', bgcolor: '#f5f5f5', mb: 1 }}>
                         <Typography variant="subtitle1" fontWeight="bold">
                             {usuario}

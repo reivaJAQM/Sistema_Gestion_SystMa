@@ -1,169 +1,252 @@
 import React, { useEffect, useState } from 'react';
 import { 
-    Container, Typography, Grid, Card, CardContent, CardActions, 
-    Button, Chip, Box, CircularProgress, Divider, Stack 
+  Container, Typography, Box, Card, CardContent, CardActions, 
+  Button, Grid, Chip, CircularProgress, Alert, Divider, TextField, Dialog, DialogTitle, DialogContent, DialogActions 
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import PersonIcon from '@mui/icons-material/Person';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
-// Iconos
-import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-
 export default function PanelSupervisor() {
-    const navigate = useNavigate();
-    const [ordenes, setOrdenes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [listaEstados, setListaEstados] = useState([]); // Para buscar IDs
-    const usuarioNombre = localStorage.getItem('user_name');
+  const [ordenes, setOrdenes] = useState([]);
+  const [estados, setEstados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Para el rechazo con motivo
+  const [openRechazo, setOpenRechazo] = useState(false);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [ordenARechazar, setOrdenARechazar] = useState(null);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+  const navigate = useNavigate();
+  const userRol = localStorage.getItem('user_rol');
+  const currentUserId = parseInt(localStorage.getItem('user_id'));
 
-    const fetchData = async () => {
-        try {
-            const [resOrdenes, resEstados] = await Promise.all([
-                api.get('ordenes/'),
-                api.get('estados/')
-            ]);
-            
-            setListaEstados(resEstados.data);
+  useEffect(() => {
+    // Validación de acceso básica
+    if (userRol !== 'Supervisor' && userRol !== 'Administrador') {
+      alert("Acceso denegado.");
+      navigate('/dashboard');
+      return;
+    }
+    fetchDatos();
+  }, [userRol, navigate]);
 
-            // Filtramos las del supervisor y ordenamos por importancia
-            // Prioridad: "En Revisión" primero
-            const misOrdenes = resOrdenes.data
-                .filter(o => o.supervisor_nombre === usuarioNombre)
-                .sort((a, b) => {
-                    if (a.estado_data?.nombre === 'En Revisión') return -1;
-                    if (b.estado_data?.nombre === 'En Revisión') return 1;
-                    return 0;
-                });
-            
-            setOrdenes(misOrdenes);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
+  const fetchDatos = async () => {
+    try {
+      const [resOrdenes, resEstados] = await Promise.all([
+        api.get('ordenes/'),
+        api.get('estados/')
+      ]);
+      
+      setEstados(resEstados.data);
+
+      // --- FILTRADO DE SEGURIDAD ---
+      const ordenesFiltradas = resOrdenes.data.filter(orden => {
+        // 1. Primero, debe estar en estado "En Revisión"
+        const esRevision = orden.estado_data?.nombre === 'En Revisión';
+        if (!esRevision) return false;
+
+        // 2. Reglas de Visibilidad
+        if (userRol === 'Administrador') {
+            return true; // El Admin ve TODO
+        } else if (userRol === 'Supervisor') {
+            // El Supervisor solo ve las que le asignaron a él explícitamente
+            return orden.supervisor === currentUserId;
         }
-    };
+        return false;
+      });
+      
+      setOrdenes(ordenesFiltradas);
 
-    const cambiarEstado = async (ordenId, nuevoNombreEstado) => {
-        if(!confirm(`¿Estás seguro de cambiar el estado a "${nuevoNombreEstado}"?`)) return;
+    } catch (error) {
+      console.error("Error cargando revisiones", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const estadoObj = listaEstados.find(e => e.nombre === nuevoNombreEstado);
-        if (!estadoObj) return alert("Estado no encontrado");
+  const handleAprobar = async (ordenId) => {
+    try {
+      if (!window.confirm("¿Estás seguro de aprobar este trabajo?")) return;
 
-        try {
-            await api.patch(`ordenes/${ordenId}/`, { estado: estadoObj.id });
-            fetchData(); // Recargar lista
-        } catch (error) {
-            console.error(error);
-            alert("Error al actualizar");
-        }
-    };
+      const estadoFinalizado = estados.find(e => e.nombre === 'Finalizado');
+      if (!estadoFinalizado) return alert("Error: No existe estado Finalizado");
 
-    const verDetalle = (id) => {
-        navigate(`/trabajo/${id}`);
-    };
+      await api.patch(`ordenes/${ordenId}/`, {
+        estado: estadoFinalizado.id,
+        fecha_fin: new Date().toISOString()
+      });
 
-    if (loading) return <Box sx={{ display:'flex', justifyContent:'center', mt:5 }}><CircularProgress /></Box>;
+      setOrdenes(prev => prev.filter(o => o.id !== ordenId));
+      alert("¡Trabajo aprobado y finalizado!");
 
-    return (
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <AssignmentIndIcon fontSize="large" color="primary" />
-                <Typography variant="h4" fontWeight="bold">
-                    Panel de Supervisión
-                </Typography>
-            </Box>
+    } catch (error) {
+      console.error("Error al aprobar", error);
+      alert("Error al aprobar.");
+    }
+  };
 
-            {ordenes.length === 0 ? (
-                <Typography variant="h6" color="textSecondary" align="center">
-                    Todo limpio. No tienes órdenes pendientes de supervisión.
-                </Typography>
-            ) : (
-                <Grid container spacing={3}>
-                    {ordenes.map((orden) => {
-                        const esRevision = orden.estado_data?.nombre === 'En Revisión';
+  const abrirModalRechazo = (ordenId) => {
+    setOrdenARechazar(ordenId);
+    setMotivoRechazo('');
+    setOpenRechazo(true);
+  };
 
-                        return (
-                            <Grid item xs={12} md={6} lg={4} key={orden.id}>
-                                <Card elevation={esRevision ? 8 : 2} sx={{ 
-                                    borderLeft: `6px solid ${orden.estado_data?.color || '#ccc'}`,
-                                    transform: esRevision ? 'scale(1.02)' : 'none', // Destacar visualmente
-                                    transition: '0.2s'
-                                }}>
-                                    <CardContent>
-                                        <Box display="flex" justifyContent="space-between" mb={1}>
-                                            <Chip 
-                                                label={orden.estado_data?.nombre || 'Indefinido'} 
-                                                size="small" 
-                                                sx={{ 
-                                                    bgcolor: orden.estado_data?.color, 
-                                                    color: 'white', 
-                                                    fontWeight: 'bold' 
-                                                }}
-                                            />
-                                            <Typography variant="caption" color="textSecondary">#{orden.id}</Typography>
-                                        </Box>
-                                        
-                                        <Typography variant="h6" gutterBottom noWrap title={orden.titulo}>
-                                            {orden.titulo}
-                                        </Typography>
-                                        
-                                        <Box mt={2} sx={{ fontSize: '0.9rem' }}>
-                                            <Typography variant="body2"><strong>Técnico:</strong> {orden.tecnico_nombre}</Typography>
-                                            <Typography variant="body2"><strong>Cliente:</strong> {orden.cliente_nombre}</Typography>
-                                        </Box>
-                                    </CardContent>
+  const handleConfirmarRechazo = async () => {
+    if (!motivoRechazo) return alert("Debes indicar un motivo.");
+    
+    try {
+      const estadoProgreso = estados.find(e => e.nombre === 'En Progreso');
+      
+      await api.patch(`ordenes/${ordenARechazar}/`, {
+        estado: estadoProgreso.id
+      });
+      
+      // Opcional: Podrías crear un registro de Avance con el motivo del rechazo aquí
 
-                                    <Divider />
+      setOrdenes(prev => prev.filter(o => o.id !== ordenARechazar));
+      setOpenRechazo(false);
+      alert("Trabajo devuelto al técnico.");
 
-                                    <CardActions sx={{ flexDirection: 'column', gap: 1, p: 2 }}>
-                                        {/* BOTONES DE ACCIÓN (SOLO SI ESTÁ EN REVISIÓN) */}
-                                        {esRevision ? (
-                                            <Stack direction="row" spacing={1} width="100%">
-                                                <Button 
-                                                    fullWidth variant="contained" color="success"
-                                                    startIcon={<CheckCircleIcon />}
-                                                    onClick={() => cambiarEstado(orden.id, 'Finalizado')}
-                                                >
-                                                    Aprobar
-                                                </Button>
-                                                <Button 
-                                                    fullWidth variant="outlined" color="error"
-                                                    startIcon={<CancelIcon />}
-                                                    onClick={() => cambiarEstado(orden.id, 'En Progreso')}
-                                                >
-                                                    Rechazar
-                                                </Button>
-                                            </Stack>
-                                        ) : (
-                                            <Typography variant="caption" color="textSecondary" sx={{fontStyle:'italic'}}>
-                                                {orden.estado_data?.nombre === 'Finalizado' 
-                                                    ? 'Trabajo Finalizado' 
-                                                    : 'Esperando terminación del técnico...'}
-                                            </Typography>
-                                        )}
+    } catch (error) {
+      console.error("Error al rechazar", error);
+    }
+  };
 
-                                        <Button 
-                                            fullWidth size="small" 
-                                            startIcon={<VisibilityIcon />}
-                                            onClick={() => verDetalle(orden.id)}
-                                            sx={{ mt: 1 }}
-                                        >
-                                            Ver Detalles y Fotos
-                                        </Button>
-                                    </CardActions>
-                                </Card>
-                            </Grid>
-                        );
-                    })}
-                </Grid>
-            )}
-        </Container>
-    );
+  if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+            <Typography variant="h4" fontWeight="bold">
+                Panel de Supervisión
+            </Typography>
+            <Typography variant="subtitle2" color="text.secondary">
+                {userRol === 'Administrador' 
+                    ? "Vista Global (Modo Administrador)" 
+                    : "Gestionando tus asignaciones"}
+            </Typography>
+        </Box>
+        <Chip 
+            icon={<AssignmentIndIcon />}
+            label={userRol} 
+            color={userRol === 'Administrador' ? 'error' : 'primary'} 
+            variant="outlined" 
+            sx={{ fontWeight: 'bold', px: 1 }}
+        />
+      </Box>
+
+      {ordenes.length === 0 ? (
+        <Alert severity="info" sx={{ mt: 2, py: 3 }} icon={<CheckCircleIcon fontSize="large"/>}>
+            <Typography variant="h6">Todo al día</Typography>
+            {userRol === 'Supervisor' 
+                ? "No tienes trabajos asignados pendientes de revisión." 
+                : "No hay trabajos pendientes de revisión en todo el sistema."}
+        </Alert>
+      ) : (
+        <Grid container spacing={3}>
+          {ordenes.map((orden) => (
+            <Grid item xs={12} md={6} key={orden.id}>
+              <Card elevation={4} sx={{ borderLeft: '6px solid #ed6c02', position: 'relative' }}>
+                
+                {/* Etiqueta si es Admin viendo trabajo de otro */}
+                {userRol === 'Administrador' && orden.supervisor && orden.supervisor !== currentUserId && (
+                    <Chip 
+                        label={`Supervisor: ${orden.supervisor_nombre}`} 
+                        size="small" 
+                        color="default" 
+                        sx={{ position: 'absolute', top: 10, right: 10, opacity: 0.8 }}
+                    />
+                )}
+
+                <CardContent sx={{ pt: 4 }}>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                        {orden.titulo}
+                    </Typography>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PersonIcon color="action" fontSize="small"/> 
+                            <strong>Técnico:</strong> {orden.tecnico_nombre || "Sin asignar"}
+                        </Typography>
+                        
+                        <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LocationOnIcon color="action" fontSize="small"/> 
+                            {orden.direccion}
+                        </Typography>
+                    </Box>
+
+                    <Box sx={{ mt: 2, bgcolor: '#fff3e0', p: 1.5, borderRadius: 2, border: '1px dashed #ed6c02' }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                            DESCRIPCIÓN:
+                        </Typography>
+                        <Typography variant="body2" color="text.primary">
+                            {orden.descripcion}
+                        </Typography>
+                    </Box>
+
+                    <Button 
+                        sx={{ mt: 2 }}
+                        size="small" 
+                        variant="text" 
+                        onClick={() => navigate(`/trabajo/${orden.id}`)}
+                    >
+                        Ver Evidencias y Bitácora Completa
+                    </Button>
+                </CardContent>
+                <CardActions sx={{ p: 2, pt: 0, justifyContent: 'space-between' }}>
+                    <Button 
+                        variant="outlined" 
+                        color="error" 
+                        startIcon={<CancelIcon />}
+                        onClick={() => abrirModalRechazo(orden.id)}
+                    >
+                        Rechazar
+                    </Button>
+                    <Button 
+                        variant="contained" 
+                        color="success" 
+                        startIcon={<CheckCircleIcon />}
+                        onClick={() => handleAprobar(orden.id)}
+                    >
+                        Aprobar
+                    </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* MODAL RECHAZO */}
+      <Dialog open={openRechazo} onClose={() => setOpenRechazo(false)}>
+        <DialogTitle>Corrección Requerida</DialogTitle>
+        <DialogContent sx={{ minWidth: 400 }}>
+            <Typography variant="body2" gutterBottom color="text.secondary">
+                Explica brevemente por qué rechazas el trabajo para que el técnico sepa qué corregir.
+            </Typography>
+            <TextField
+                autoFocus margin="dense"
+                label="Motivo / Observación"
+                fullWidth multiline rows={3}
+                value={motivoRechazo}
+                onChange={(e) => setMotivoRechazo(e.target.value)}
+            />
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setOpenRechazo(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmarRechazo} variant="contained" color="error">
+                Enviar a Corrección
+            </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
 }

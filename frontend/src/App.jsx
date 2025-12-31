@@ -8,11 +8,24 @@ import MisTrabajos from './pages/MisTrabajos';
 import DetalleTrabajo from './pages/DetalleTrabajo';
 import GestionUsuarios from './pages/GestionUsuarios';
 import PanelSupervisor from './pages/PanelSupervisor';
-import Dashboard from './pages/Dashboard'; // <--- 1. IMPORTAMOS EL DASHBOARD
+import Dashboard from './pages/Dashboard';
 
+// Componente para proteger rutas (si no hay token, al login)
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
   return token ? children : <Navigate to="/login" />;
+};
+
+// --- NUEVO: COMPONENTE DE REDIRECCIÓN INICIAL ---
+// Decide a dónde ir según el rol cuando entras a "/"
+const RootRedirect = () => {
+  const userRol = localStorage.getItem('user_rol');
+  
+  if (userRol === 'Tecnico') {
+    return <Navigate to="/calendario" />;
+  }
+  // Por defecto, Admin y Supervisor van al Dashboard
+  return <Navigate to="/dashboard" />;
 };
 
 function App() {
@@ -25,12 +38,10 @@ function App() {
           <RutaPrivada>
             <Navbar />
             <Routes>
-              {/* 2. CAMBIAMOS: Al entrar a la raíz, vamos al Dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" />} />
+              {/* USAMOS EL NUEVO COMPONENTE AQUÍ */}
+              <Route path="/" element={<RootRedirect />} />
               
-              {/* 3. AGREGAMOS la ruta real */}
               <Route path="/dashboard" element={<Dashboard />} /> 
-
               <Route path="/calendario" element={<Calendario />} />
               <Route path="/nueva-orden" element={<CrearOrden />} />
               <Route path="/mis-trabajos" element={<MisTrabajos />} />

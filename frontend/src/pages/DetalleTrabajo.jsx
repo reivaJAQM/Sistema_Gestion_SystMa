@@ -9,7 +9,7 @@ import SendIcon from '@mui/icons-material/Send';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import MapIcon from '@mui/icons-material/Map'; // Icono para el botón de GPS
+import MapIcon from '@mui/icons-material/Map'; 
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 import api from '../services/api';
@@ -102,7 +102,7 @@ export default function DetalleTrabajo() {
 
   if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
 
-  // Convertimos lat/long a números (vienen como strings del backend a veces)
+  // Convertimos lat/long a números
   const lat = orden.latitud ? parseFloat(orden.latitud) : null;
   const lng = orden.longitud ? parseFloat(orden.longitud) : null;
   const tieneGPS = lat && lng;
@@ -112,7 +112,8 @@ export default function DetalleTrabajo() {
       
       {/* Botonera Superior */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/mis-trabajos')}>
+          {/* CAMBIO CLAVE: navigate(-1) regresa al historial anterior */}
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
             Volver
           </Button>
 
@@ -143,7 +144,7 @@ export default function DetalleTrabajo() {
                 </Typography>
             </Grid>
             
-            {/* FOTO REFERENCIAL SI EXISTE */}
+            {/* FOTO REFERENCIAL */}
             {orden.foto_referencia && (
                 <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center' }}>
                      <img 
@@ -155,7 +156,7 @@ export default function DetalleTrabajo() {
             )}
         </Grid>
 
-        {/* --- MAPA DE UBICACIÓN (NUEVO) --- */}
+        {/* --- MAPA DE UBICACIÓN --- */}
         {tieneGPS && (
             <Box sx={{ mt: 3 }}>
                 <Divider sx={{ mb: 2 }} />
@@ -164,7 +165,6 @@ export default function DetalleTrabajo() {
                         <LocationOnIcon color="error" fontSize="small" /> Ubicación GPS Confirmada
                     </Typography>
                     
-                    {/* BOTÓN PARA ABRIR EN GOOGLE MAPS / WAZE */}
                     <Button 
                         variant="outlined" 
                         color="primary" 
@@ -181,7 +181,7 @@ export default function DetalleTrabajo() {
                 <Box sx={{ height: '250px', width: '100%', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
                     <MapContainer center={[lat, lng]} zoom={15} style={{ height: '100%', width: '100%' }}>
                         <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
                         <Marker position={[lat, lng]}>
