@@ -7,8 +7,11 @@ import CrearOrden from './pages/CrearOrden';
 import MisTrabajos from './pages/MisTrabajos';
 import DetalleTrabajo from './pages/DetalleTrabajo';
 import GestionUsuarios from './pages/GestionUsuarios';
+import GestionClientes from './pages/GestionClientes';
 import Dashboard from './pages/Dashboard';
 import ListaTrabajos from './pages/ListaTrabajos';
+import RecuperarContrasena from './pages/RecuperarContrasena';
+import ResetearContrasena from './pages/ResetearContrasena';
 
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
@@ -25,7 +28,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Rutas públicas (sin login) */}
         <Route path="/login" element={<Login />} />
+        <Route path="/recuperar" element={<RecuperarContrasena />} />
+        <Route path="/resetear/:uid/:token" element={<ResetearContrasena />} />
 
         <Route path="/*" element={
           <RutaPrivada>
@@ -38,6 +44,7 @@ function App() {
               <Route path="/mis-trabajos" element={<MisTrabajos />} />
               <Route path="/trabajo/:id" element={<DetalleTrabajo />} />
               <Route path="/usuarios" element={<GestionUsuarios />} />
+              <Route path="/clientes" element={<GestionClientes />} />
               <Route path="/todos-los-trabajos" element={<ListaTrabajos />} />
               
               {/* RUTA PanelSupervisor ELIMINADA AQUÍ */}

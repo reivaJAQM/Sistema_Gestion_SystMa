@@ -143,7 +143,7 @@ export default function Login() {
                                 type="button"
                                 variant="caption" 
                                 underline="hover"
-                                onClick={() => console.log("Redirigir a recuperación")} // Cambia esto por navigate('/recuperar')
+                                onClick={() => navigate('/recuperar')}
                                 sx={{ 
                                     color: 'text.secondary', 
                                     fontWeight: 500,

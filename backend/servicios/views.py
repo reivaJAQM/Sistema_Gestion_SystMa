@@ -3,13 +3,16 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.template.loader import get_template
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth.models import User
 from xhtml2pdf import pisa
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,8 +20,13 @@ from rest_framework.response import Response
 # Importación de modelos y serializadores
 from .models import Estado, OrdenTrabajo, Avance, FotoAvance
 from .serializers import (
-    EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer, 
+    EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer,
     AvanceSerializer, RegistroUsuarioSerializer
+)
+from .emails import (
+    notificar_tecnico_asignado, notificar_supervisor_asignado,
+    notificar_cambio_estado, enviar_email_recuperacion,
+    notificar_bienvenida_personal
 )
 
 # ... (El código de MyTokenObtainPairSerializer y MyTokenObtainPairView se mantiene igual) ...
@@ -51,43 +59,70 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
     queryset = OrdenTrabajo.objects.all()
     serializer_class = OrdenTrabajoSerializer
 
+    def get_queryset(self):
+        queryset = OrdenTrabajo.objects.all()
+        cliente_id = self.request.query_params.get('cliente', None)
+        tecnico_id = self.request.query_params.get('tecnico', None)
+        supervisor_id = self.request.query_params.get('supervisor', None)
+        if cliente_id:
+            queryset = queryset.filter(cliente_id=cliente_id)
+        if tecnico_id:
+            queryset = queryset.filter(tecnico_id=tecnico_id)
+        if supervisor_id:
+            queryset = queryset.filter(supervisor_id=supervisor_id)
+        return queryset
+
     def perform_create(self, serializer):
         user = self.request.user
         
-        # 1. Restricción: Los técnicos NO pueden crear órdenes
         if user.groups.filter(name='Tecnico').exists():
             raise PermissionDenied("Los técnicos no tienen permiso para generar nuevas órdenes de trabajo.")
 
-        # 2. Asignación automática si es Supervisor
         if user.groups.filter(name='Supervisor').exists():
-            serializer.save(supervisor=user)
+            instance = serializer.save(supervisor=user)
         else:
-            serializer.save()
+            instance = serializer.save()
+
+        # ── Notificaciones al crear ──────────────────────────────────────
+        if instance.tecnico:
+            notificar_tecnico_asignado(instance)
+        if instance.supervisor:
+            notificar_supervisor_asignado(instance)
 
     def perform_update(self, serializer):
         user = self.request.user
-        orden = serializer.instance # La orden que se intenta modificar
+        orden = serializer.instance
 
-        # 1. Validación para TÉCNICOS (Ya la tenías)
+        # Guardar valores ANTES de actualizar (para detectar cambios)
+        old_tecnico  = orden.tecnico
+        old_supervisor = orden.supervisor
+        old_estado   = orden.estado.nombre if orden.estado else None
+
         if user.groups.filter(name='Tecnico').exists():
             if orden.tecnico and orden.tecnico != user:
                 raise PermissionDenied("Solo el técnico asignado puede realizar cambios o gestionar esta orden.")
         
-        # 2. NUEVA Validación para SUPERVISORES (Aquí está la solución)
         if user.groups.filter(name='Supervisor').exists():
-            # Si la orden tiene supervisor asignado y NO es el usuario actual... error.
-            # (El "orden.supervisor" asume que así se llama el campo en tu modelo, basado en tu perform_create)
             if orden.supervisor and orden.supervisor != user:
                 raise PermissionDenied("No tienes permiso para modificar una orden que no te ha sido asignada.")
         
-        serializer.save()
-    # --------------------------------------------
+        instance = serializer.save()
+
+        # ── Notificaciones al actualizar ─────────────────────────────────
+        if instance.tecnico != old_tecnico and instance.tecnico:
+            notificar_tecnico_asignado(instance)
+        if instance.supervisor != old_supervisor and instance.supervisor:
+            notificar_supervisor_asignado(instance)
+        if instance.estado and (old_estado != instance.estado.nombre):
+            notificar_cambio_estado(instance, old_estado)
 
 class ClienteViewSet(viewsets.ModelViewSet):
-    # ... (Se mantiene igual)
     queryset = User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
 
 class SupervisorViewSet(viewsets.ModelViewSet):
     # ... (Se mantiene igual)
@@ -143,10 +178,19 @@ class AvanceViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(avance).data, status=201)
 
 class RegistroUsuarioViewSet(viewsets.ModelViewSet):
-    # ... (Se mantiene igual)
-    queryset = User.objects.all()
     serializer_class = RegistroUsuarioSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(is_superuser=False).filter(groups__name__in=['Supervisor', 'Tecnico'])
+
+    def perform_create(self, serializer):
+        # Capturamos la contraseña en texto plano ANTES de que el serializer la hashee
+        password_plano = serializer.validated_data.get('password', '')
+        rol = serializer.validated_data.get('rol', '')
+        instance = serializer.save()
+        # Enviamos el correo de bienvenida con las credenciales
+        notificar_bienvenida_personal(instance, password_plano, rol)
 
 # ... (La función generar_reporte_pdf se mantiene igual) ...
 @api_view(['GET'])
@@ -173,7 +217,6 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Contamos las órdenes según su estado
         total = OrdenTrabajo.objects.count()
         pendientes = OrdenTrabajo.objects.filter(estado__nombre='Pendiente').count()
         progreso = OrdenTrabajo.objects.filter(estado__nombre='En Progreso').count()
@@ -185,3 +228,60 @@ class DashboardStatsView(APIView):
             'en_progreso': progreso,
             'finalizados': finalizados
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECUPERACIÓN DE CONTRASEÑA
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PasswordResetRequestView(APIView):
+    """POST /api/password-reset/  — Recibe email y envía enlace de recuperación."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'detail': 'El campo email es obligatorio.'}, status=400)
+
+        # Buscamos el usuario (respuesta genérica para no revelar si existe)
+        try:
+            user = User.objects.get(email__iexact=email)
+            uid   = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            reset_url = f"{settings.FRONTEND_URL}/resetear/{uid}/{token}"
+            enviar_email_recuperacion(user, reset_url)
+        except User.DoesNotExist:
+            pass  # No revelamos si el email existe o no
+
+        return Response({
+            'detail': 'Si ese correo está registrado, recibirás un enlace en breve.'
+        })
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/password-reset/confirm/  — Valida token y cambia la contraseña."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uid      = request.data.get('uid', '')
+        token    = request.data.get('token', '')
+        password = request.data.get('password', '')
+
+        if not all([uid, token, password]):
+            return Response({'detail': 'Faltan campos obligatorios.'}, status=400)
+
+        if len(password) < 6:
+            return Response({'detail': 'La contraseña debe tener al menos 6 caracteres.'}, status=400)
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user    = User.objects.get(pk=user_id)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'El enlace de recuperación no es válido.'}, status=400)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'El enlace expiró o ya fue utilizado.'}, status=400)
+
+        user.set_password(password)
+        user.save()
+        return Response({'detail': 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'})

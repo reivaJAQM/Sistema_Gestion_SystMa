@@ -15,7 +15,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
-import ListAltIcon from '@mui/icons-material/ListAlt'; // Icono para la lista global
+import PersonIcon from '@mui/icons-material/Person';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -96,7 +97,16 @@ export default function Navbar() {
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/usuarios">
               <ListItemIcon><GroupAddIcon color="success"/></ListItemIcon>
-              <ListItemText primary="Gestionar Personal" />
+              <ListItemText primary="Personal" />
+            </ListItemButton>
+          </ListItem>
+        )}
+
+        {(rol === 'Administrador' || rol === 'Supervisor') && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/clientes">
+              <ListItemIcon><PersonIcon color="info"/></ListItemIcon>
+              <ListItemText primary="Clientes" />
             </ListItemButton>
           </ListItem>
         )}

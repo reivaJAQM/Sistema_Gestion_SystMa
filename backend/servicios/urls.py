@@ -1,9 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    EstadoViewSet, OrdenTrabajoViewSet, ClienteViewSet, 
-    SupervisorViewSet, TecnicoViewSet, AvanceViewSet, 
-    RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView
+    EstadoViewSet, OrdenTrabajoViewSet, ClienteViewSet,
+    SupervisorViewSet, TecnicoViewSet, AvanceViewSet,
+    RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView,
+    PasswordResetRequestView, PasswordResetConfirmView
 )
 
 router = DefaultRouter()
@@ -19,4 +20,6 @@ urlpatterns = [
     path('', include(router.urls)),
     path('ordenes/<int:pk>/pdf/', generar_reporte_pdf, name='generar_pdf'),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]
