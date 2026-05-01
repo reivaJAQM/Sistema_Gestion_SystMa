@@ -60,7 +60,6 @@ services:
   - type: web
     name: systma-frontend
     runtime: static
-    region: oregon
     plan: free
     rootDir: frontend
     buildCommand: "npm install && npm run build"
