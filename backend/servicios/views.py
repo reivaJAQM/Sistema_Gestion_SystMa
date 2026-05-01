@@ -3,10 +3,11 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.template.loader import get_template
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.db.models import Count, Avg, F, Q
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.decorators import api_view
@@ -26,7 +27,7 @@ from .serializers import (
 from .emails import (
     notificar_tecnico_asignado, notificar_supervisor_asignado,
     notificar_cambio_estado, enviar_email_recuperacion,
-    notificar_bienvenida_personal
+    notificar_bienvenida_personal, notificar_registro_cliente
 )
 
 # ... (El código de MyTokenObtainPairSerializer y MyTokenObtainPairView se mantiene igual) ...
@@ -43,7 +44,11 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             data['rol'] = 'Administrador'
         else:
             groups = self.user.groups.values_list('name', flat=True)
-            data['rol'] = list(groups)[0] if groups else 'Usuario'
+            group_list = list(groups)
+            if 'Cliente' in group_list:
+                data['rol'] = 'Cliente'
+            else:
+                data['rol'] = group_list[0] if group_list else 'Usuario'
         return data
 
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -124,6 +129,12 @@ class ClienteViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
 
+    def perform_create(self, serializer):
+        password_plano = serializer.validated_data.get('password', 'cliente123')
+        instance = serializer.save()
+        if instance.email:
+            notificar_registro_cliente(instance, password_plano)
+
 class SupervisorViewSet(viewsets.ModelViewSet):
     # ... (Se mantiene igual)
     queryset = User.objects.filter(groups__name='Supervisor')
@@ -193,6 +204,12 @@ class RegistroUsuarioViewSet(viewsets.ModelViewSet):
         notificar_bienvenida_personal(instance, password_plano, rol)
 
 # ... (La función generar_reporte_pdf se mantiene igual) ...
+def link_callback(uri, rel):
+    """Convierte rutas file:// a rutas absolutas del sistema de archivos."""
+    if uri.startswith('file://'):
+        return uri[7:]
+    return uri
+
 @api_view(['GET'])
 def generar_reporte_pdf(request, pk):
     orden = get_object_or_404(OrdenTrabajo, pk=pk)
@@ -238,7 +255,7 @@ def generar_reporte_pdf(request, pk):
     response['Content-Disposition'] = f'attachment; filename="Reporte_{nombre_archivo}.pdf"'
     template = get_template(template_path)
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(html, dest=response)
+    pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
     if pisa_status.err:
        return HttpResponse('Error al generar PDF', status=500)
     return response
@@ -258,6 +275,47 @@ class DashboardStatsView(APIView):
             'en_progreso': progreso,
             'finalizados': finalizados
         })
+
+
+class PersonalPerformanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_rol = request.user.groups.values_list('name', flat=True)
+        if not (user_rol.exists() and ('Supervisor' in user_rol or 'Administrador' in user_rol)) and not request.user.is_superuser:
+            return Response({'detail': 'No tienes permiso para acceder a estas analíticas.'}, status=403)
+
+        tecnicos = User.objects.filter(groups__name='Tecnico')
+        performance_data = []
+
+        for tech in tecnicos:
+            # 1. Cantidad de trabajos
+            total_jobs = OrdenTrabajo.objects.filter(tecnico=tech).count()
+            completed_jobs = OrdenTrabajo.objects.filter(tecnico=tech, estado__nombre='Finalizado').count()
+            
+            # 2. Tiempo promedio de resolución (en horas)
+            # Calculamos la diferencia entre fecha_fin y fecha_inicio
+            completed_orders = OrdenTrabajo.objects.filter(tecnico=tech, estado__nombre='Finalizado', fecha_inicio__isnull=False, fecha_fin__isnull=False)
+            total_duration = sum([(o.fecha_fin - o.fecha_inicio).total_seconds() for o in completed_orders])
+            avg_duration_hours = (total_duration / completed_jobs / 3600) if completed_jobs > 0 else 0
+
+            # 3. Tasa de Rechazo
+            # Buscamos avances que contengan la palabra 'RECHAZADO'
+            rejections = Avance.objects.filter(orden__tecnico=tech, contenido__icontains='RECHAZADO').count()
+            rejection_rate = (rejections / total_jobs * 100) if total_jobs > 0 else 0
+
+            performance_data.append({
+                'id': tech.id,
+                'nombre': f"{tech.first_name} {tech.last_name}".strip() or tech.username,
+                'total_trabajos': total_jobs,
+                'finalizados': completed_jobs,
+                'tiempo_promedio_horas': round(avg_duration_hours, 1),
+                'rechazos': rejections,
+                'tasa_rechazo': round(rejection_rate, 1),
+                'eficiencia': round((completed_jobs / total_jobs * 100), 1) if total_jobs > 0 else 0
+            })
+
+        return Response(performance_data)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ def crear_datos():
     print("🔄 Iniciando configuración inicial...")
 
     # 1. CREAR GRUPOS
-    grupos = ['Tecnico', 'Supervisor']
+    grupos = ['Tecnico', 'Supervisor', 'Cliente']
     for nombre in grupos:
         g, created = Group.objects.get_or_create(name=nombre)
         if created:

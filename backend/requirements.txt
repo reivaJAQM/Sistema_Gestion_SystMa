@@ -7,3 +7,10 @@ pillow==12.0.0
 psycopg2-binary==2.9.11
 PyJWT==2.10.1
 sqlparse==0.5.5
+xhtml2pdf==0.2.17
+gunicorn==23.0.0
+whitenoise==6.8.2
+cloudinary==1.38.0
+django-cloudinary-storage==1.1.0
+dj-database-url==2.3.0
+python-dotenv==1.1.0

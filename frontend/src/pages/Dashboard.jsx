@@ -33,6 +33,10 @@ export default function Dashboard() {
   const userId = parseInt(localStorage.getItem('user_id'));
 
   useEffect(() => {
+    if (userRol === 'Cliente') {
+        navigate('/mis-solicitudes');
+        return;
+    }
     if (userRol === 'Tecnico') {
         navigate('/calendario');
         return;

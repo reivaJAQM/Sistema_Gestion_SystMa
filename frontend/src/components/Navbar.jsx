@@ -18,6 +18,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import PersonIcon from '@mui/icons-material/Person';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import BarChartIcon from '@mui/icons-material/BarChart';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -50,7 +51,16 @@ export default function Navbar() {
       <Divider />
       
       <List>
-        {rol !== 'Tecnico' && (
+        {rol === 'Cliente' && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/mis-solicitudes">
+              <ListItemIcon><DashboardIcon color="primary"/></ListItemIcon>
+              <ListItemText primary="Mis Solicitudes" />
+            </ListItemButton>
+          </ListItem>
+        )}
+
+        {rol !== 'Tecnico' && rol !== 'Cliente' && (
             <ListItem disablePadding>
             <ListItemButton component={Link} to="/dashboard">
                 <ListItemIcon><DashboardIcon color="primary"/></ListItemIcon>
@@ -59,12 +69,14 @@ export default function Navbar() {
             </ListItem>
         )}
 
-        <ListItem disablePadding>
-          <ListItemButton component={Link} to="/calendario">
-            <ListItemIcon><CalendarMonthIcon color="info"/></ListItemIcon>
-            <ListItemText primary="Agenda Calendario" />
-          </ListItemButton>
-        </ListItem>
+        {rol !== 'Cliente' && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/calendario">
+              <ListItemIcon><CalendarMonthIcon color="info"/></ListItemIcon>
+              <ListItemText primary="Agenda Calendario" />
+            </ListItemButton>
+          </ListItem>
+        )}
 
         {rol === 'Tecnico' && (
           <ListItem disablePadding>
@@ -75,8 +87,7 @@ export default function Navbar() {
           </ListItem>
         )}
 
-        {/* --- CAMBIO: En lugar de PanelSupervisor, ponemos la Lista General para Admins/Sup --- */}
-        {rol !== 'Tecnico' && (
+        {rol !== 'Tecnico' && rol !== 'Cliente' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/todos-los-trabajos">
               <ListItemIcon><ListAltIcon color="action" /></ListItemIcon>
@@ -85,11 +96,20 @@ export default function Navbar() {
           </ListItem>
         )}
 
-        {rol !== 'Tecnico' && (
+        {rol !== 'Tecnico' && rol !== 'Cliente' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/nueva-orden">
               <ListItemIcon><AddCircleIcon color="secondary"/></ListItemIcon>
               <ListItemText primary="Nueva Orden" />
+            </ListItemButton>
+          </ListItem>
+        )}
+
+        {(rol === 'Administrador' || rol === 'Supervisor') && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/rendimiento">
+              <ListItemIcon><BarChartIcon color="primary"/></ListItemIcon>
+              <ListItemText primary="Rendimiento Personal" />
             </ListItemButton>
           </ListItem>
         )}

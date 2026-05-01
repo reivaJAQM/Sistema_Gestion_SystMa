@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Paper, TextField, Button, Typography, Box, 
   Dialog, DialogTitle, DialogContent, DialogActions, 
-  IconButton, Stack, Autocomplete, MenuItem 
+  IconButton, Stack, Autocomplete, MenuItem, CircularProgress
 } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
@@ -72,6 +72,7 @@ export default function CrearOrden() {
   // Modales
   const [openModal, setOpenModal] = useState(false); // Modal Cliente
   const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal Éxito
+  const [loading, setLoading] = useState(false); // Estado de carga
   
   const [nuevoClienteNombre, setNuevoClienteNombre] = useState('');
   const [nuevoClienteEmail, setNuevoClienteEmail] = useState('');
@@ -84,6 +85,10 @@ export default function CrearOrden() {
   }
 
   useEffect(() => {
+    if (userRol === 'Cliente' || userRol === 'Tecnico') {
+        navigate('/mis-solicitudes');
+        return;
+    }
     cargarDatos();
   }, []);
 
@@ -106,6 +111,7 @@ export default function CrearOrden() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     const formData = new FormData();
     formData.append('titulo', titulo);
     formData.append('descripcion', descripcion);
@@ -126,9 +132,7 @@ export default function CrearOrden() {
     if (userRol === 'Administrador' && supervisorId) formData.append('supervisor', supervisorId);
 
     try {
-      // CORRECCIÓN: Quitamos el header manual. Axios detecta el FormData y lo pone correctamente.
       await api.post('ordenes/', formData);
-      
       setShowSuccessModal(true); 
 
     } catch (error) {
@@ -138,6 +142,8 @@ export default function CrearOrden() {
       } else {
           alert('Error al crear la orden.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -328,8 +334,8 @@ export default function CrearOrden() {
             )}
           </Box>
 
-          <Button type="submit" variant="contained" size="large" sx={{ mt: 2 }}>
-            Generar Orden
+          <Button type="submit" variant="contained" size="large" sx={{ mt: 2 }} disabled={loading}>
+            {loading ? <CircularProgress size={24} color="inherit" /> : "Generar Orden"}
           </Button>
         </Box>
       </Paper>

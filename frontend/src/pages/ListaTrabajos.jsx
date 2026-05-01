@@ -29,6 +29,10 @@ export default function ListaTrabajos() {
   const userRol = localStorage.getItem('user_rol');
 
   useEffect(() => {
+    if (userRol === 'Cliente') {
+      navigate('/mis-solicitudes');
+      return;
+    }
     if (userRol === 'Tecnico') {
       navigate('/calendario');
       return;

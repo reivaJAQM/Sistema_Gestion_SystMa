@@ -35,6 +35,10 @@ export default function Calendario() {
   const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
 
   useEffect(() => {
+    if (userRol === 'Cliente') {
+      navigate('/mis-solicitudes');
+      return;
+    }
     fetchData();
   }, []);
 

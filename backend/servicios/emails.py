@@ -151,3 +151,19 @@ def notificar_bienvenida_personal(user, password_temporal, rol):
         },
         destinatario=user.email,
     )
+
+
+def notificar_registro_cliente(user, password_temporal):
+    """Envía correo de bienvenida al nuevo cliente con sus credenciales de acceso."""
+    if not user.email:
+        return
+    _enviar(
+        asunto="👋 Bienvenido a SystMa — Tus credenciales de acceso",
+        template="emails/bienvenida_cliente.html",
+        contexto={
+            'usuario': user,
+            'password_temporal': password_temporal,
+            'frontend_url': settings.FRONTEND_URL,
+        },
+        destinatario=user.email,
+    )

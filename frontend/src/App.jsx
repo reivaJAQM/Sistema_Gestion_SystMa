@@ -13,6 +13,8 @@ import ListaTrabajos from './pages/ListaTrabajos';
 import RecuperarContrasena from './pages/RecuperarContrasena';
 import ResetearContrasena from './pages/ResetearContrasena';
 import Perfil from './pages/Perfil';
+import DashboardCliente from './pages/DashboardCliente';
+import RendimientoPersonal from './pages/RendimientoPersonal';
 
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
@@ -21,6 +23,7 @@ const RutaPrivada = ({ children }) => {
 
 const RootRedirect = () => {
   const userRol = localStorage.getItem('user_rol');
+  if (userRol === 'Cliente') return <Navigate to="/mis-solicitudes" />;
   if (userRol === 'Tecnico') return <Navigate to="/calendario" />;
   return <Navigate to="/dashboard" />;
 };
@@ -40,6 +43,7 @@ function App() {
             <Routes>
               <Route path="/" element={<RootRedirect />} />
               <Route path="/dashboard" element={<Dashboard />} /> 
+              <Route path="/mis-solicitudes" element={<DashboardCliente />} />
               <Route path="/calendario" element={<Calendario />} />
               <Route path="/nueva-orden" element={<CrearOrden />} />
               <Route path="/mis-trabajos" element={<MisTrabajos />} />
@@ -48,9 +52,8 @@ function App() {
               <Route path="/clientes" element={<GestionClientes />} />
               <Route path="/todos-los-trabajos" element={<ListaTrabajos />} />
               <Route path="/perfil" element={<Perfil />} />
+              <Route path="/rendimiento" element={<RendimientoPersonal />} />
               
-              {/* RUTA PanelSupervisor ELIMINADA AQUÍ */}
-
             </Routes>
           </RutaPrivada>
         } />

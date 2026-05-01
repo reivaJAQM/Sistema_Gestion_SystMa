@@ -58,6 +58,7 @@ export default function DetalleTrabajo() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState({ title: '', subtext: '' });
+  const [actionLoading, setActionLoading] = useState(false);
 
   const userRol = localStorage.getItem('user_rol');
   const userId = parseInt(localStorage.getItem('user_id'));
@@ -73,6 +74,12 @@ export default function DetalleTrabajo() {
         api.get(`avances/?orden=${id}`),
         api.get('estados/')
       ]);
+      // Si es cliente, verificar que la orden le pertenece
+      if (userRol === 'Cliente' && resOrden.data.cliente !== userId) {
+        alert("No tienes permiso para ver esta orden.");
+        navigate('/mis-solicitudes');
+        return;
+      }
       setOrden(resOrden.data);
       setAvances(resAvances.data);
       setEstados(resEstados.data);
@@ -136,6 +143,7 @@ export default function DetalleTrabajo() {
   const handleEnviarAvance = async (e) => {
     e.preventDefault();
     if (!nuevoTexto && nuevasFotos.length === 0) return alert("Escribe algo o sube fotos");
+    setActionLoading(true);
 
     const formData = new FormData();
     formData.append('orden', id);
@@ -152,9 +160,16 @@ export default function DetalleTrabajo() {
       setNuevoTexto('');
       setNuevasFotos([]); 
       cargarDatos(); 
+      setSuccessMessage({ 
+          title: "¡Avance Registrado!", 
+          subtext: "El avance ha sido guardado exitosamente en la bitácora." 
+      });
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("Error enviando avance", error);
       alert("Error al guardar el avance");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -189,75 +204,69 @@ export default function DetalleTrabajo() {
   // --- ACCIONES DE SUPERVISOR CORREGIDAS ---
   
   const handleAprobar = async () => {
-    // Mantenemos la confirmación inicial de seguridad
     if (!window.confirm("¿Confirmas que el trabajo está correcto y finalizado?")) return;
-    
+    setActionLoading(true);
     try {
         const estadoFinalizado = estados.find(e => e.nombre === 'Finalizado');
         
-        // 1. PRIMERO: Agregar hito en el historial (ANTES de cambiar a Finalizado)
         const formData = new FormData();
         formData.append('orden', id);
         formData.append('contenido', '✅ TRABAJO APROBADO Y FINALIZADO POR SUPERVISIÓN.');
         await api.post('avances/', formData);
         
-        // 2. DESPUÉS: Cambiar estado a Finalizado
         await api.patch(`ordenes/${id}/`, {
             estado: estadoFinalizado.id,
             fecha_fin: new Date().toISOString()
         });
 
-        // 3. MOSTRAR MODAL BONITO (En vez de alert + navigate)
         setSuccessMessage({ 
             title: "¡Orden Finalizada!", 
             subtext: "El trabajo ha sido aprobado correctamente. La orden ahora está cerrada." 
         });
         setShowSuccessModal(true);
-        
-        // 4. Recargar datos para ver el cambio (estado verde) sin recargar la página
         cargarDatos(); 
 
     } catch (error) {
         console.error("Error al aprobar", error);
         alert("Ocurrió un error al intentar finalizar la orden.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleRechazar = async () => {
     if (!motivoRechazo) return alert("Debes escribir el motivo del rechazo.");
-    
+    setActionLoading(true);
     try {
         const estadoProgreso = estados.find(e => e.nombre === 'En Progreso');
         
-        // 1. PRIMERO: Registrar el rechazo en bitácora
         const formData = new FormData();
         formData.append('orden', id);
         formData.append('contenido', `❌ RECHAZADO: ${motivoRechazo}`);
         await api.post('avances/', formData);
 
-        // 2. DESPUÉS: Devolver estado a En Progreso
         await api.patch(`ordenes/${id}/`, { estado: estadoProgreso.id });
 
-        // 3. MOSTRAR MODAL BONITO
         setSuccessMessage({ 
             title: "Devuelto a Corrección", 
             subtext: "El técnico ha sido notificado y la orden está nuevamente en progreso." 
         });
         setShowSuccessModal(true);
-        setOpenRechazo(false); // Cierra el modal de escribir motivo
-        
-        // 4. Actualizar vista
+        setOpenRechazo(false);
         cargarDatos();
 
     } catch (error) {
         console.error("Error al rechazar", error);
         alert("Error al rechazar el trabajo.");
+    } finally {
+      setActionLoading(false);
     }
   };
   
   const handleTecnicoAccion = async (nuevoEstadoNombre) => {
       const nuevoEstado = estados.find(e => e.nombre === nuevoEstadoNombre);
       if (!nuevoEstado) return alert(`Error: estado ${nuevoEstadoNombre} no encontrado`);
+      setActionLoading(true);
 
       try {
           let mensajeHistorial = '';
@@ -278,25 +287,22 @@ export default function DetalleTrabajo() {
           formData.append('orden', id);
           formData.append('contenido', mensajeHistorial);
 
-          // --- LÓGICA CORREGIDA ---
           if (nuevoEstadoNombre === 'En Progreso') {
-              // INICIAR: Primero Estado -> Luego Avance
               await api.patch(`ordenes/${id}/`, { estado: nuevoEstado.id });
               await api.post('avances/', formData);
           } else {
-              // FINALIZAR: Primero Avance -> Luego Estado
-              // (Si esto está al revés, fallará)
               await api.post('avances/', formData);
               await api.patch(`ordenes/${id}/`, { estado: nuevoEstado.id });
           }
 
           setSuccessMessage({ title: tituloModal, subtext: cuerpoModal });
           setShowSuccessModal(true);
-          
           cargarDatos(); 
       } catch (error) {
           console.error("Error cambiando estado técnico", error);
           alert("Error al actualizar el estado. Intenta nuevamente.");
+      } finally {
+        setActionLoading(false);
       }
   };
 
@@ -312,7 +318,7 @@ export default function DetalleTrabajo() {
   const esFinalizado = orden.estado_data?.nombre === 'Finalizado';
   const esSupervisorOAdmin = userRol === 'Administrador' || (userRol === 'Supervisor' && orden.supervisor === userId);
   const esTecnicoAsignado = userRol === 'Tecnico' && orden.tecnico === userId;
-  const mostrarBotonPDF = esSupervisorOAdmin && esFinalizado;
+  const mostrarBotonPDF = (esSupervisorOAdmin || userRol === 'Cliente') && esFinalizado;
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 10 }}>
@@ -336,16 +342,24 @@ export default function DetalleTrabajo() {
             </Box>
             <Divider sx={{ mb: 2 }} />
             {esPendiente && (
-                <Button variant="contained" color="success" fullWidth size="large" onClick={() => handleTecnicoAccion('En Progreso')} sx={{ py: 1.5, fontWeight: 'bold', fontSize: '1.1rem' }}>Iniciar Trabajo</Button>
+                <Button variant="contained" color="success" fullWidth size="large" onClick={() => handleTecnicoAccion('En Progreso')} disabled={actionLoading} sx={{ py: 1.5, fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  {actionLoading ? <CircularProgress size={24} color="inherit" /> : "Iniciar Trabajo"}
+                </Button>
             )}
             {esEnProgreso && (
-                <Button variant="contained" color="warning" fullWidth size="large" startIcon={<AssignmentTurnedInIcon />} onClick={() => handleTecnicoAccion('En Revisión')} sx={{ py: 1.5, fontWeight: 'bold', fontSize: '1.1rem' }}>Finalizar y Solicitar Revisión</Button>
+                <Button variant="contained" color="warning" fullWidth size="large" startIcon={<AssignmentTurnedInIcon />} onClick={() => handleTecnicoAccion('En Revisión')} disabled={actionLoading} sx={{ py: 1.5, fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  {actionLoading ? <CircularProgress size={24} color="inherit" /> : "Finalizar y Solicitar Revisión"}
+                </Button>
             )}
          </Paper>
       )}
       
       {esTecnicoAsignado && esRevision && (
           <Alert severity="warning" sx={{ mb: 4 }} icon={<SupervisorAccountIcon fontSize="inherit" />}><strong>Trabajo en Revisión:</strong> Esperando que el Supervisor apruebe o rechace tu trabajo.</Alert>
+      )}
+
+      {userRol === 'Cliente' && esRevision && (
+          <Alert severity="info" sx={{ mb: 4 }} icon={<SupervisorAccountIcon fontSize="inherit" />}><strong>Trabajo en Revisión:</strong> Tu solicitud está siendo evaluada por nuestro equipo de supervisión.</Alert>
       )}
 
       {esSupervisorOAdmin && esRevision && (
@@ -356,8 +370,10 @@ export default function DetalleTrabajo() {
             </Box>
             <Divider sx={{ mb: 2 }} />
             <Box display="flex" gap={2} justifyContent="flex-end">
-                <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={() => setOpenRechazo(true)}>Rechazar</Button>
-                <Button variant="contained" color="success" startIcon={<CheckCircleIcon />} onClick={handleAprobar}>Aprobar</Button>
+                <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={() => setOpenRechazo(true)} disabled={actionLoading}>Rechazar</Button>
+                <Button variant="contained" color="success" startIcon={<CheckCircleIcon />} onClick={handleAprobar} disabled={actionLoading}>
+                  {actionLoading ? <CircularProgress size={24} color="inherit" /> : "Aprobar"}
+                </Button>
             </Box>
         </Paper>
       )}
@@ -408,7 +424,7 @@ export default function DetalleTrabajo() {
       </Paper>
 
       {/* FORMULARIO BITÁCORA */}
-      {!esPendiente && !esRevision && orden.estado_data?.nombre !== 'Finalizado' && (
+      {userRol !== 'Cliente' && !esPendiente && !esRevision && orden.estado_data?.nombre !== 'Finalizado' && (
           <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
             <Typography variant="h6" gutterBottom>📝 Bitácora de Avances</Typography>
             <Box component="form" onSubmit={handleEnviarAvance}>
@@ -443,14 +459,16 @@ export default function DetalleTrabajo() {
                   {nuevasFotos.length > 0 ? `Subir ${nuevasFotos.length} Fotos` : "Subir Evidencia"}
                   <input type="file" hidden accept="image/*" multiple onChange={handleFileChange} />
                 </Button>
-                <Button type="submit" variant="contained" endIcon={<SendIcon />}>Guardar Avance</Button>
+                <Button type="submit" variant="contained" endIcon={<SendIcon />} disabled={actionLoading}>
+                  {actionLoading ? <CircularProgress size={20} color="inherit" /> : "Guardar Avance"}
+                </Button>
               </Box>
             </Box>
           </Paper>
       )}
 
       {/* HISTORIAL */}
-      {!esPendiente && (
+      {(userRol === 'Cliente' || !esPendiente) && (
         <Box>
             <Typography variant="h6" sx={{ mb: 2 }}>Historial de Actividad</Typography>
             {avances.length === 0 ? (
@@ -518,10 +536,12 @@ export default function DetalleTrabajo() {
              <Typography variant="body2" gutterBottom>Explica al técnico qué debe corregir.</Typography>
              <TextField autoFocus margin="dense" placeholder="Escribe una retroalimentación" fullWidth multiline rows={3} value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} />
          </DialogContent>
-         <DialogActions>
-             <Button onClick={() => setOpenRechazo(false)}>Cancelar</Button>
-             <Button onClick={handleRechazar} variant="contained" color="error">Confirmar</Button>
-         </DialogActions>
+          <DialogActions>
+              <Button onClick={() => setOpenRechazo(false)}>Cancelar</Button>
+              <Button onClick={handleRechazar} variant="contained" color="error" disabled={actionLoading}>
+                {actionLoading ? <CircularProgress size={20} color="inherit" /> : "Confirmar"}
+              </Button>
+          </DialogActions>
       </Dialog>
 
       {/* MODAL LIGHTBOX MEJORADO CON FLECHAS */}

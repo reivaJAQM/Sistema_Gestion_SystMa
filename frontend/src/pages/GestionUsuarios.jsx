@@ -17,6 +17,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LockIcon from '@mui/icons-material/Lock';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const ROL_CONFIG = {
     Supervisor: { color: '#7b1fa2', icon: <SupervisorAccountIcon />, chipColor: 'secondary', label: 'Supervisor' },
@@ -108,8 +109,9 @@ function DirectorioSection({ title, color, icon, users, onEdit, onDelete, editab
 // PÁGINA PRINCIPAL
 // ============================================================
 export default function GestionUsuarios() {
-    const loggedUserId = parseInt(localStorage.getItem('user_id'));
+    const navigate = useNavigate();
     const userRol = localStorage.getItem('user_rol');
+    const loggedUserId = parseInt(localStorage.getItem('user_id'));
     const esAdmin = userRol === 'Administrador';
 
     const [tabValue, setTabValue] = useState(0);
@@ -156,7 +158,13 @@ export default function GestionUsuarios() {
         }
     }, []);
 
-    useEffect(() => { cargarPersonal(); }, [cargarPersonal]);
+    useEffect(() => { 
+      if (userRol === 'Cliente' || userRol === 'Tecnico') {
+        navigate('/mis-solicitudes');
+        return;
+      }
+      cargarPersonal(); 
+    }, [cargarPersonal]);
 
     const listaSupervisores = personal.filter(p => p.rol_visual === 'Supervisor');
     const listaTecnicos     = personal.filter(p => p.rol_visual === 'Tecnico');

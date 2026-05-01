@@ -16,6 +16,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 // ---------- TARJETA DE CLIENTE ----------
 function ClienteCard({ cliente, onEdit, onDelete }) {
@@ -77,6 +78,8 @@ function ClienteCard({ cliente, onEdit, onDelete }) {
 // PÁGINA PRINCIPAL
 // ============================================================
 export default function GestionClientes() {
+    const navigate = useNavigate();
+    const userRol = localStorage.getItem('user_rol');
     const loggedUserId = parseInt(localStorage.getItem('user_id'));
 
     const [tabValue, setTabValue] = useState(0);
@@ -118,7 +121,13 @@ export default function GestionClientes() {
         }
     }, []);
 
-    useEffect(() => { cargarClientes(); }, [cargarClientes]);
+    useEffect(() => { 
+      if (userRol === 'Cliente' || userRol === 'Tecnico') {
+        navigate('/mis-solicitudes');
+        return;
+      }
+      cargarClientes(); 
+    }, [cargarClientes]);
 
     // Filtrado por búsqueda
     const clientesFiltrados = clientes.filter(c => {
@@ -195,6 +204,10 @@ export default function GestionClientes() {
     // ---------- CREACIÓN ----------
     const handleCreate = async (e) => {
         e.preventDefault();
+        if (!formData.email) {
+            setCreateError('El correo electrónico es obligatorio.');
+            return;
+        }
         setCreateLoading(true);
         setCreateError('');
         try {

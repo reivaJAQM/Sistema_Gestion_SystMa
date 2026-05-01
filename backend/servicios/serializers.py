@@ -13,6 +13,12 @@ class ClienteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password', 'cliente123')
         user = User.objects.create_user(**validated_data, password=password)
+        # Asignar al grupo "Cliente"
+        try:
+            grupo = Group.objects.get(name='Cliente')
+            user.groups.add(grupo)
+        except Group.DoesNotExist:
+            pass
         return user
 
     def update(self, instance, validated_data):
