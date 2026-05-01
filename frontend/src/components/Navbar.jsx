@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AppBar, Toolbar, Typography, Box, IconButton, 
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider,
   Avatar, Menu, MenuItem 
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../services/api';
+import { getMediaUrl } from '../utils/mediaUrl';
 
 // Iconos
 import MenuIcon from '@mui/icons-material/Menu';
@@ -24,10 +26,47 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false); 
   const [anchorEl, setAnchorEl] = useState(null);
+  const [fotoPerfil, setFotoPerfil] = useState(() => {
+    const stored = localStorage.getItem('user_foto');
+    return stored ? getMediaUrl(stored) : null;
+  });
   const openMenu = Boolean(anchorEl);
 
   const usuario = localStorage.getItem('user_name');
   const rol = localStorage.getItem('user_rol');
+
+  useEffect(() => {
+    const fetchFoto = async () => {
+      try {
+        const { data } = await api.get('perfil/');
+        if (data.foto_perfil) {
+          const url = getMediaUrl(data.foto_perfil);
+          setFotoPerfil(url);
+          localStorage.setItem('user_foto', data.foto_perfil);
+        }
+      } catch (err) {
+        console.error('Error al cargar foto de perfil', err);
+      }
+    };
+    if (usuario) fetchFoto();
+  }, [usuario]);
+
+  useEffect(() => {
+    const handler = () => {
+      api.get('perfil/').then(({ data }) => {
+        if (data.foto_perfil) {
+          const url = getMediaUrl(data.foto_perfil);
+          setFotoPerfil(url);
+          localStorage.setItem('user_foto', data.foto_perfil);
+        } else {
+          setFotoPerfil(null);
+          localStorage.removeItem('user_foto');
+        }
+      });
+    };
+    window.addEventListener('fotoPerfilChanged', handler);
+    return () => window.removeEventListener('fotoPerfilChanged', handler);
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -153,7 +192,15 @@ export default function Navbar() {
             {usuario && (
                 <>
                   <IconButton onClick={handleMenuClick} size="small">
-                    <Avatar sx={{ bgcolor: 'rgba(255, 255, 255, 0.2)', color: '#fff', fontWeight: 'bold', border: '2px solid rgba(255,255,255,0.3)' }}>
+                    <Avatar 
+                      src={fotoPerfil || undefined} 
+                      sx={{ 
+                        bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                        color: '#fff', 
+                        fontWeight: 'bold', 
+                        border: '2px solid rgba(255,255,255,0.3)' 
+                      }}
+                    >
                         {usuario.charAt(0).toUpperCase()}
                     </Avatar>
                   </IconButton>

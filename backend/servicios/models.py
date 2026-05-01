@@ -1,6 +1,26 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    foto_perfil = models.ImageField(upload_to='perfiles/', null=True, blank=True)
+
+    def __str__(self):
+        return f"Perfil de {self.user.username}"
+
+def crear_perfil(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+
+def guardar_perfil(sender, instance, **kwargs):
+    try:
+        instance.profile.save()
+    except Profile.DoesNotExist:
+        Profile.objects.create(user=instance)
+
+models.signals.post_save.connect(crear_perfil, sender=User)
+models.signals.post_save.connect(guardar_perfil, sender=User)
+
 class Estado(models.Model):
     nombre = models.CharField(max_length=50)
     color = models.CharField(max_length=7, default="#808080")

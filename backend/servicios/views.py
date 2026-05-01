@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 # Importación de modelos y serializadores
-from .models import Estado, OrdenTrabajo, Avance, FotoAvance
+from .models import Estado, OrdenTrabajo, Avance, FotoAvance, Profile
 from .serializers import (
     EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer,
     AvanceSerializer, RegistroUsuarioSerializer
@@ -382,21 +382,28 @@ class PerfilUsuarioView(APIView):
     """GET/PUT /api/perfil/ — Permite al usuario logueado ver y editar su propio perfil."""
     permission_classes = [IsAuthenticated]
 
+    def _get_foto_url(self, user):
+        try:
+            if user.profile.foto_perfil:
+                return user.profile.foto_perfil.url
+        except Profile.DoesNotExist:
+            pass
+        return None
+
     def get(self, request):
         user = request.user
         return Response({
             'username': user.username,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'email': user.email
+            'email': user.email,
+            'foto_perfil': self._get_foto_url(user)
         })
 
     def put(self, request):
         user = request.user
         
-        # Actualizar campos permitidos
         if 'username' in request.data:
-            # Check if username is already taken by others
             if User.objects.filter(username=request.data['username']).exclude(id=user.id).exists():
                 return Response({'detail': 'El nombre de usuario ya está en uso.'}, status=400)
             user.username = request.data['username']
@@ -416,8 +423,13 @@ class PerfilUsuarioView(APIView):
             if len(request.data['password']) < 6:
                 return Response({'detail': 'La contraseña debe tener al menos 6 caracteres.'}, status=400)
             user.set_password(request.data['password'])
-            
+        
         user.save()
+        
+        if 'foto_perfil' in request.FILES:
+            profile, _ = Profile.objects.get_or_create(user=user)
+            profile.foto_perfil = request.FILES['foto_perfil']
+            profile.save()
         
         return Response({
             'detail': 'Perfil actualizado correctamente.',
@@ -425,6 +437,19 @@ class PerfilUsuarioView(APIView):
                 'username': user.username,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'email': user.email
+                'email': user.email,
+                'foto_perfil': self._get_foto_url(user)
             }
         })
+
+    def delete(self, request):
+        user = request.user
+        try:
+            profile = user.profile
+            if profile.foto_perfil:
+                profile.foto_perfil.delete(save=False)
+                profile.foto_perfil = None
+                profile.save()
+            return Response({'detail': 'Foto de perfil eliminada.'})
+        except Profile.DoesNotExist:
+            return Response({'detail': 'No hay foto de perfil.'}, status=404)

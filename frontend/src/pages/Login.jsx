@@ -31,6 +31,17 @@ export default function Login() {
             localStorage.setItem('user_id', response.data.user_id);
             localStorage.setItem('user_name', response.data.nombre_completo);
 
+            try {
+                const perfilRes = await api.get('perfil/');
+                if (perfilRes.data.foto_perfil) {
+                    localStorage.setItem('user_foto', perfilRes.data.foto_perfil);
+                } else {
+                    localStorage.removeItem('user_foto');
+                }
+            } catch (err) {
+                localStorage.removeItem('user_foto');
+            }
+
             const rol = response.data.rol;
 
             if (rol === 'Tecnico') {
