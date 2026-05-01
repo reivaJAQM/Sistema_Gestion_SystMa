@@ -69,7 +69,7 @@ DATABASES = {
             'postgresql://postgres:Carmen25@localhost:5432/db_gestion_tic'
         ),
         conn_max_age=600,
-        ssl_require=True,
+        ssl_require=os.environ.get('DB_SSL', 'True').lower() in ('true', '1', 'yes'),
     )
 }
 
