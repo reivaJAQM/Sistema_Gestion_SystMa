@@ -8,7 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -179,7 +179,7 @@ class AvanceViewSet(viewsets.ModelViewSet):
 
 class RegistroUsuarioViewSet(viewsets.ModelViewSet):
     serializer_class = RegistroUsuarioSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def get_queryset(self):
         return User.objects.filter(is_superuser=False).filter(groups__name__in=['Supervisor', 'Tecnico'])
@@ -285,3 +285,58 @@ class PasswordResetConfirmView(APIView):
         user.set_password(password)
         user.save()
         return Response({'detail': 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'})
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MI PERFIL
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PerfilUsuarioView(APIView):
+    """GET/PUT /api/perfil/ — Permite al usuario logueado ver y editar su propio perfil."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email
+        })
+
+    def put(self, request):
+        user = request.user
+        
+        # Actualizar campos permitidos
+        if 'username' in request.data:
+            # Check if username is already taken by others
+            if User.objects.filter(username=request.data['username']).exclude(id=user.id).exists():
+                return Response({'detail': 'El nombre de usuario ya está en uso.'}, status=400)
+            user.username = request.data['username']
+            
+        if 'email' in request.data:
+            if User.objects.filter(email=request.data['email']).exclude(id=user.id).exists():
+                return Response({'detail': 'El correo electrónico ya está en uso.'}, status=400)
+            user.email = request.data['email']
+            
+        if 'first_name' in request.data:
+            user.first_name = request.data['first_name']
+            
+        if 'last_name' in request.data:
+            user.last_name = request.data['last_name']
+            
+        if 'password' in request.data and request.data['password']:
+            if len(request.data['password']) < 6:
+                return Response({'detail': 'La contraseña debe tener al menos 6 caracteres.'}, status=400)
+            user.set_password(request.data['password'])
+            
+        user.save()
+        
+        return Response({
+            'detail': 'Perfil actualizado correctamente.',
+            'user': {
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email
+            }
+        })

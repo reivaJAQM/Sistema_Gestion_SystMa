@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import ListaTrabajos from './pages/ListaTrabajos';
 import RecuperarContrasena from './pages/RecuperarContrasena';
 import ResetearContrasena from './pages/ResetearContrasena';
+import Perfil from './pages/Perfil';
 
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
@@ -46,6 +47,7 @@ function App() {
               <Route path="/usuarios" element={<GestionUsuarios />} />
               <Route path="/clientes" element={<GestionClientes />} />
               <Route path="/todos-los-trabajos" element={<ListaTrabajos />} />
+              <Route path="/perfil" element={<Perfil />} />
               
               {/* RUTA PanelSupervisor ELIMINADA AQUÍ */}
 

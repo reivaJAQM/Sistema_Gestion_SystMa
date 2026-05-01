@@ -99,25 +99,59 @@ export default function Calendario() {
   if (loading) return <Box sx={{ display:'flex', justifyContent:'center', mt:5 }}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: '#1a202c' }}>
-          Agenda de Trabajo
-        </Typography>
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h3" component="h1" sx={{ 
+            fontWeight: 900, 
+            background: 'linear-gradient(45deg, #1976d2 30%, #9c27b0 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '-1px'
+          }}>
+            Agenda de Trabajo
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ fontWeight: 500 }}>
+            Gestiona y visualiza la programación operativa
+          </Typography>
+        </Box>
         
         {userRol !== 'Tecnico' && (
           <Button 
             variant="contained" 
             startIcon={<AddIcon />}
             onClick={() => navigate('/nueva-orden')}
-            sx={{ borderRadius: 2 }}
+            sx={{ 
+                borderRadius: '50px', 
+                px: 4, 
+                py: 1.5, 
+                textTransform: 'none', 
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                boxShadow: '0 3px 15px rgba(33, 203, 243, 0.4)',
+                '&:hover': {
+                    background: 'linear-gradient(45deg, #1976d2 30%, #00bcd4 90%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 20px rgba(33, 203, 243, 0.6)',
+                },
+                transition: 'all 0.3s ease'
+            }}
           >
             Agendar Trabajo
           </Button>
         )}
       </Box>
 
-      <Box sx={{ mb: 5 }}>
+      <Paper elevation={0} sx={{ 
+          p: { xs: 2, md: 4 }, 
+          borderRadius: 4, 
+          bgcolor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
+          border: '1px solid rgba(255,255,255,0.5)',
+          mb: 5 
+      }}>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
@@ -141,7 +175,7 @@ export default function Calendario() {
           forceEventDuration={true} 
           defaultTimedEventDuration="01:00:00" 
         />
-      </Box>
+      </Paper>
 
       {/* --- MODAL DETALLES --- */}
       <Dialog 

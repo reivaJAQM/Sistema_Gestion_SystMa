@@ -4,7 +4,7 @@ from .views import (
     EstadoViewSet, OrdenTrabajoViewSet, ClienteViewSet,
     SupervisorViewSet, TecnicoViewSet, AvanceViewSet,
     RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView,
-    PasswordResetRequestView, PasswordResetConfirmView
+    PasswordResetRequestView, PasswordResetConfirmView, PerfilUsuarioView
 )
 
 router = DefaultRouter()
@@ -22,4 +22,5 @@ urlpatterns = [
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('perfil/', PerfilUsuarioView.as_view(), name='mi-perfil'),
 ]

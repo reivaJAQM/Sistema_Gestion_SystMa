@@ -25,101 +25,139 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* --- ESTILOS GENERALES DEL CALENDARIO --- */
+/* --- ESTILOS MODERNOS DEL CALENDARIO --- */
 .fc {
   font-family: 'Inter', 'Roboto', sans-serif;
-  background: white;
-  border-radius: 12px; 
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
-  border: 1px solid #c0c4cc; 
+  background: transparent;
+  border: none !important;
 }
 
+/* Remover bordes duros exteriores */
+.fc-theme-standard td, .fc-theme-standard th, .fc-theme-standard .fc-scrollgrid {
+    border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Barra superior: Título y botones */
 .fc-toolbar-title {
-  font-size: 1.5rem !important;
-  font-weight: 700;
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
   color: #1a202c;
+  letter-spacing: -0.5px;
 }
 
-.fc-button {
-  border-radius: 6px !important;
+.fc-button-primary {
+  background-color: #fff !important;
+  color: #4a5568 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
   font-weight: 600 !important;
   text-transform: capitalize;
-  letter-spacing: 0.3px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-  transition: all 0.2s ease;
+  padding: 8px 16px !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important;
+  transition: all 0.2s ease !important;
 }
 
+.fc-button-primary:hover {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05) !important;
+}
+
+.fc-button-primary:not(:disabled).fc-button-active, 
+.fc-button-primary:not(:disabled):active {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* Cabecera de los días (Lun 12, Mar 13...) */
 .fc-col-header-cell-cushion {
   text-transform: uppercase;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #4a5568;
-  padding: 12px 0 !important;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  padding: 14px 0 !important;
+  letter-spacing: 0.5px;
+}
+
+.fc-day-today .fc-col-header-cell-cushion {
+    color: #1976d2;
+    font-weight: 900;
 }
 
 .fc-timegrid-slot {
-  height: 3.5em !important; 
+  height: 4em !important; 
 }
 
-.fc-timegrid-slot-lane {
-    border-bottom: 1px solid #d1d5db !important;
+.fc-timegrid-slot-label-cushion {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    font-weight: 500;
 }
 
 /* =========================================
-   EVENTOS "FULL WIDTH" (RELLENO TOTAL)
+   ESTILOS DE EVENTOS PREMIUM (FULL WIDTH EDGE-TO-EDGE)
    ========================================= */
 
-/* 1. ELIMINAR CÁLCULOS DE POSICIÓN JS (NUCLEAR OPTION) */
-/* Esto fuerza al contenedor a ocupar el 100% del ancho, sobrescribiendo los estilos inline */
-.fc-timegrid-event-harness {
-  left: 0% !important;
-  right: 0% !important;
-  width: 100% !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+/* Limpiar los márgenes internos de la columna que FullCalendar añade por defecto (ej. margin: 0 2.5% 0 2px) */
+.fc-timegrid-col-events {
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-/* 2. Estilo del bloque del evento */
-.fc-event {
+/* Fuerza al contenedor del evento a usar el 100% del ancho y pegarse a los bordes */
+.fc-timegrid-event-harness,
+.fc-timegrid-event-harness-inset {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* El evento en sí, sin bordes redondeados para que llene perfectamente el cuadrado */
+.fc-v-event {
   border: none !important;
-  border-radius: 0 !important; /* Cuadrado perfecto */
+  border-radius: 0 !important; 
   box-shadow: none !important;
   margin: 0 !important; 
+  overflow: hidden;
+  transition: all 0.2s ease;
   width: 100% !important;
+  height: 100% !important;
 }
 
-/* 3. Contenido interno */
-.fc-event-main {
-  padding: 4px 8px !important;
+.fc-v-event .fc-event-main {
+  padding: 8px 12px !important;
   border-radius: 0 !important;
   height: 100%; 
-  /* Borde inferior sutil para separar si hay dos tareas seguidas */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
 }
 
-/* 4. Ajustes verticales */
-.fc-timegrid-event {
-  margin-top: 2px !important; /* Pegado a la línea de arriba */
-  margin-bottom: 2px !important; /* Pegado a la línea de abajo */
-  z-index: 1; 
-}
-
-/* 5. Hover */
-.fc-event:hover {
-  filter: brightness(0.95); 
+.fc-v-event:hover {
+  transform: scale(1.02);
   cursor: pointer;
   z-index: 50 !important; 
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+  filter: brightness(1.05);
 }
 
-/* 6. Indicador hora actual */
+/* Indicador hora actual */
 .fc-timegrid-now-indicator-line {
-  border-color: #d93025; 
+  border-color: #f43f5e; 
   border-width: 2px;
   z-index: 100; 
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
 }
+
 .fc-timegrid-now-indicator-arrow {
-  border-color: #d93025;
+  border-color: #f43f5e;
   border-width: 6px;
   z-index: 100;
+}
+
+/* Resaltar día actual suavemente */
+.fc-day-today {
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%) !important;
 }

@@ -12,6 +12,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; 
 import AddCircleIcon from '@mui/icons-material/AddCircle'; 
 import LogoutIcon from '@mui/icons-material/Logout';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
@@ -139,7 +140,11 @@ export default function Navbar() {
                         <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 'bold' }}>{rol}</Typography>
                     </Box>
                     <Divider />
-                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main', mt: 1 }}>
+                    <MenuItem component={Link} to="/perfil" onClick={handleMenuClose}>
+                      <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+                      Mi Perfil
+                    </MenuItem>
+                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                       <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
                       Cerrar Sesión
                     </MenuItem>

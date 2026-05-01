@@ -170,7 +170,7 @@ export default function GestionUsuarios() {
             last_name: user.last_name ?? '',
             email: user.email ?? '',
             password: '',
-            rol: user.rol_actual ?? '',
+            rol: user.rol_visual ?? '',
         });
         setEditError('');
         setEditOpen(true);
