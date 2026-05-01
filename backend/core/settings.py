@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+import dj_database_url
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -59,19 +63,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'db_gestion_tic'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'Carmen25'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get(
+            'DATABASE_URL',
+            'postgresql://postgres:Carmen25@localhost:5432/db_gestion_tic'
+        ),
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
-
-DATABASES['default'].update({
-    'CONN_MAX_AGE': 600,
-})
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

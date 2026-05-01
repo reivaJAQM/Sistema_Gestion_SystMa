@@ -4,7 +4,8 @@ from .views import (
     EstadoViewSet, OrdenTrabajoViewSet, ClienteViewSet,
     SupervisorViewSet, TecnicoViewSet, AvanceViewSet,
     RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView,
-    PasswordResetRequestView, PasswordResetConfirmView, PerfilUsuarioView
+    PasswordResetRequestView, PasswordResetConfirmView, PerfilUsuarioView,
+    PersonalPerformanceView
 )
 
 router = DefaultRouter()
