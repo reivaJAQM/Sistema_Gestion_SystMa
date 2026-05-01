@@ -175,7 +175,8 @@ export default function DetalleTrabajo() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Reporte_Orden_${id}.pdf`);
+      const nombreArchivo = orden.titulo ? orden.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase() : `orden_${id}`;
+      link.setAttribute('download', `Reporte_${nombreArchivo}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -194,17 +195,17 @@ export default function DetalleTrabajo() {
     try {
         const estadoFinalizado = estados.find(e => e.nombre === 'Finalizado');
         
-        // 1. Cambiar estado a Finalizado
-        await api.patch(`ordenes/${id}/`, {
-            estado: estadoFinalizado.id,
-            fecha_fin: new Date().toISOString()
-        });
-        
-        // 2. Agregar hito en el historial
+        // 1. PRIMERO: Agregar hito en el historial (ANTES de cambiar a Finalizado)
         const formData = new FormData();
         formData.append('orden', id);
         formData.append('contenido', '✅ TRABAJO APROBADO Y FINALIZADO POR SUPERVISIÓN.');
         await api.post('avances/', formData);
+        
+        // 2. DESPUÉS: Cambiar estado a Finalizado
+        await api.patch(`ordenes/${id}/`, {
+            estado: estadoFinalizado.id,
+            fecha_fin: new Date().toISOString()
+        });
 
         // 3. MOSTRAR MODAL BONITO (En vez de alert + navigate)
         setSuccessMessage({ 
@@ -228,14 +229,14 @@ export default function DetalleTrabajo() {
     try {
         const estadoProgreso = estados.find(e => e.nombre === 'En Progreso');
         
-        // 1. Devolver estado a En Progreso
-        await api.patch(`ordenes/${id}/`, { estado: estadoProgreso.id });
-
-        // 2. Registrar el rechazo en bitácora
+        // 1. PRIMERO: Registrar el rechazo en bitácora
         const formData = new FormData();
         formData.append('orden', id);
         formData.append('contenido', `❌ RECHAZADO: ${motivoRechazo}`);
         await api.post('avances/', formData);
+
+        // 2. DESPUÉS: Devolver estado a En Progreso
+        await api.patch(`ordenes/${id}/`, { estado: estadoProgreso.id });
 
         // 3. MOSTRAR MODAL BONITO
         setSuccessMessage({ 
@@ -412,10 +413,20 @@ export default function DetalleTrabajo() {
             <Typography variant="h6" gutterBottom>📝 Bitácora de Avances</Typography>
             <Box component="form" onSubmit={handleEnviarAvance}>
               <TextField
-                label="Escribe aquí los detalles del trabajo..."
+                placeholder="Escribe aquí los detalles del trabajo..."
                 multiline rows={3} fullWidth
                 value={nuevoTexto} onChange={(e) => setNuevoTexto(e.target.value)}
-                sx={{ mb: 2 }}
+                sx={{ 
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    minHeight: '120px',
+                    alignItems: 'flex-start',
+                    padding: '8px'
+                  },
+                  '& .MuiInputBase-input': {
+                    padding: '12px !important'
+                  }
+                }}
               />
               {nuevasFotos.length > 0 && (
                   <Box sx={{ display: 'flex', gap: 1, mb: 2, overflowX: 'auto', py: 1 }}>
@@ -451,7 +462,16 @@ export default function DetalleTrabajo() {
                     <ListItem alignItems="flex-start">
                         <ListItemAvatar><Avatar sx={{ bgcolor: '#1976d2' }}><AssignmentIcon /></Avatar></ListItemAvatar>
                         <ListItemText
-                        primary={<Typography component="span" variant="subtitle2" color="text.primary">{new Date(avance.creado_en).toLocaleString()}</Typography>}
+                        primary={
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                <Typography component="span" variant="subtitle2" color="text.primary" sx={{ fontWeight: 'bold' }}>
+                                    {avance.usuario_nombre_completo || avance.usuario_nombre || 'Sistema'}
+                                </Typography>
+                                <Typography component="span" variant="caption" color="text.secondary">
+                                    {new Date(avance.creado_en).toLocaleString()}
+                                </Typography>
+                            </Box>
+                        }
                         secondary={
                             <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
                                 <Typography component="span" variant="body1" color="text.primary" sx={{ whiteSpace: 'pre-line' }}>{avance.contenido}</Typography>
@@ -496,7 +516,7 @@ export default function DetalleTrabajo() {
          <DialogTitle>Devolver a Corrección</DialogTitle>
          <DialogContent sx={{ minWidth: 400 }}>
              <Typography variant="body2" gutterBottom>Explica al técnico qué debe corregir.</Typography>
-             <TextField autoFocus margin="dense" label="Motivo del rechazo" fullWidth multiline rows={3} value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} />
+             <TextField autoFocus margin="dense" placeholder="Escribe una retroalimentación" fullWidth multiline rows={3} value={motivoRechazo} onChange={(e) => setMotivoRechazo(e.target.value)} />
          </DialogContent>
          <DialogActions>
              <Button onClick={() => setOpenRechazo(false)}>Cancelar</Button>

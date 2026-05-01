@@ -122,7 +122,10 @@ export default function Navbar() {
           <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={toggleDrawer(true)}>
             <MenuIcon />
           </IconButton>
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+          <Box 
+            sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', cursor: 'pointer' }} 
+            onClick={() => navigate('/dashboard')}
+          >
             <img src="/logo.png" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
             <Typography variant="h6" component="div">Gestión SystMa</Typography>
           </Box>

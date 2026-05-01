@@ -137,10 +137,12 @@
                 <td>{{ avance.creado_en|date:"d/m/Y H:i" }}</td>
                 <td>{{ avance.contenido }}</td>
                 <td>
-                    {% if avance.foto %}
-                        <div class="foto-container">
-                            <img src="{{ avance.foto.path }}" class="foto-evidencia" />
-                        </div>
+                    {% if avance.fotos %}
+                        {% for foto_path in avance.fotos %}
+                            <div class="foto-container">
+                                <img src="file://{{ foto_path }}" class="foto-evidencia" />
+                            </div>
+                        {% endfor %}
                     {% else %}
                         <span style="color: #999; font-style: italic;">Sin foto adjunta</span>
                     {% endif %}

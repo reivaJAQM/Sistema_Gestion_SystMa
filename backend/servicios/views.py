@@ -169,7 +169,7 @@ class AvanceViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        avance = serializer.save()
+        avance = serializer.save(usuario=request.user)
 
         if fotos:
             for f in fotos:
@@ -197,15 +197,45 @@ class RegistroUsuarioViewSet(viewsets.ModelViewSet):
 def generar_reporte_pdf(request, pk):
     orden = get_object_or_404(OrdenTrabajo, pk=pk)
     avances = orden.avances.all().order_by('creado_en')
+    
+    # Procesar avances para incluir rutas absolutas de fotos
+    avances_con_fotos = []
+    for avance in avances:
+        avance_data = {
+            'id': avance.id,
+            'contenido': avance.contenido,
+            'creado_en': avance.creado_en,
+            'fotos': []
+        }
+        
+        # Agregar fotos de FotoAvance
+        if avance.imagenes.exists():
+            for foto in avance.imagenes.all():
+                ruta_completa = os.path.join(settings.MEDIA_ROOT, str(foto.foto))
+                avance_data['fotos'].append(ruta_completa)
+        # Si no hay FotoAvance pero hay foto en Avance
+        elif avance.foto:
+            ruta_completa = os.path.join(settings.MEDIA_ROOT, str(avance.foto))
+            avance_data['fotos'].append(ruta_completa)
+        
+        avances_con_fotos.append(avance_data)
+    
+    # Procesar foto de referencia de la orden
+    foto_referencia_path = None
+    if orden.foto_referencia:
+        foto_referencia_path = os.path.join(settings.MEDIA_ROOT, str(orden.foto_referencia))
+    
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo.png')
     template_path = 'reporte_orden.html'
     context = {
         'orden': orden, 
-        'avances': avances,
-        'logo_path': logo_path
+        'avances': avances_con_fotos,
+        'logo_path': logo_path,
+        'foto_referencia_path': foto_referencia_path
     }
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="Reporte_Orden_{pk}.pdf"'
+    nombre_archivo = orden.titulo.replace(' ', '_').lower() if orden.titulo else f'orden_{pk}'
+    response['Content-Disposition'] = f'attachment; filename="Reporte_{nombre_archivo}.pdf"'
     template = get_template(template_path)
     html = template.render(context)
     pisa_status = pisa.CreatePDF(html, dest=response)

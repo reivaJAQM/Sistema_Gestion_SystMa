@@ -33,6 +33,7 @@ class OrdenTrabajo(models.Model):
 # --- NUEVO MODELO: BITÁCORA DE AVANCES ---
 class Avance(models.Model):
     orden = models.ForeignKey(OrdenTrabajo, on_delete=models.CASCADE, related_name='avances')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='avances')
     contenido = models.TextField(verbose_name="Observaciones / Complicaciones")
     foto = models.ImageField(upload_to='avances/', null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)

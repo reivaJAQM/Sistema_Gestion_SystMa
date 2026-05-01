@@ -111,7 +111,16 @@ class FotoAvanceSerializer(serializers.ModelSerializer):
 class AvanceSerializer(serializers.ModelSerializer):
     # 'imagenes' hace match con el related_name='imagenes' definido en models.py
     imagenes = FotoAvanceSerializer(many=True, read_only=True)
+    usuario_nombre = serializers.ReadOnlyField(source='usuario.username')
+    usuario_nombre_completo = serializers.SerializerMethodField()
 
     class Meta:
         model = Avance
-        fields = ['id', 'orden', 'contenido', 'foto', 'creado_en', 'imagenes']
+        fields = ['id', 'orden', 'usuario', 'usuario_nombre', 'usuario_nombre_completo', 'contenido', 'foto', 'creado_en', 'imagenes']
+    
+    def get_usuario_nombre_completo(self, obj):
+        if obj.usuario:
+            first_name = obj.usuario.first_name or obj.usuario.username
+            last_name = obj.usuario.last_name or ''
+            return f"{first_name} {last_name}".strip()
+        return "Sistema"
