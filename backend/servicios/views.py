@@ -10,7 +10,8 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.db.models import Count, Avg, F, Q
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -30,7 +31,18 @@ from .emails import (
     notificar_bienvenida_personal, notificar_registro_cliente
 )
 
-# ... (El código de MyTokenObtainPairSerializer y MyTokenObtainPairView se mantiene igual) ...
+# Helper para validación segura de imágenes subidas
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5MB
+ALLOWED_IMAGE_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/jpg'}
+
+def validar_imagen(archivo):
+    if not archivo:
+        return
+    if archivo.size > MAX_IMAGE_SIZE_BYTES:
+        raise serializers.ValidationError("La imagen excede el límite de tamaño permitido (5MB).")
+    if hasattr(archivo, 'content_type') and archivo.content_type:
+        if archivo.content_type.lower() not in ALLOWED_IMAGE_CONTENT_TYPES:
+            raise serializers.ValidationError("Formato de imagen no permitido. Solo se aceptan JPEG, PNG o WEBP.")
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -49,6 +61,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 data['rol'] = 'Cliente'
             else:
                 data['rol'] = group_list[0] if group_list else 'Usuario'
+        
+        profile = getattr(self.user, 'profile', None)
+        data['debe_cambiar_password'] = getattr(profile, 'debe_cambiar_password', False) if profile else False
         return data
 
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -59,13 +74,21 @@ class MyTokenObtainPairView(TokenObtainPairView):
 class EstadoViewSet(viewsets.ModelViewSet):
     queryset = Estado.objects.all()
     serializer_class = EstadoSerializer
+    permission_classes = [IsAuthenticated]
 
 class OrdenTrabajoViewSet(viewsets.ModelViewSet):
     queryset = OrdenTrabajo.objects.all()
     serializer_class = OrdenTrabajoSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
         queryset = OrdenTrabajo.objects.all()
+
+        # Si el usuario autenticado es Cliente, aislar para que solo vea sus órdenes
+        if user.groups.filter(name='Cliente').exists() and not user.is_superuser:
+            return queryset.filter(cliente=user)
+
         cliente_id = self.request.query_params.get('cliente', None)
         tecnico_id = self.request.query_params.get('tecnico', None)
         supervisor_id = self.request.query_params.get('supervisor', None)
@@ -83,6 +106,10 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         if user.groups.filter(name='Tecnico').exists():
             raise PermissionDenied("Los técnicos no tienen permiso para generar nuevas órdenes de trabajo.")
 
+        # Validar foto de referencia si fue enviada
+        if 'foto_referencia' in self.request.FILES:
+            validar_imagen(self.request.FILES['foto_referencia'])
+
         if user.groups.filter(name='Supervisor').exists():
             instance = serializer.save(supervisor=user)
         else:
@@ -97,6 +124,10 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         user = self.request.user
         orden = serializer.instance
+
+        # Validar foto de referencia si fue enviada
+        if 'foto_referencia' in self.request.FILES:
+            validar_imagen(self.request.FILES['foto_referencia'])
 
         # Guardar valores ANTES de actualizar (para detectar cambios)
         old_tecnico  = orden.tecnico
@@ -121,6 +152,13 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         if instance.estado and (old_estado != instance.estado.nombre):
             notificar_cambio_estado(instance, old_estado)
 
+    def perform_destroy(self, instance):
+        user = self.request.user
+        es_admin = user.is_superuser or user.is_staff or user.groups.filter(name='Administrador').exists()
+        if not es_admin:
+            raise PermissionDenied("Solo los administradores tienen permiso para eliminar órdenes de trabajo.")
+        instance.delete()
+
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
     serializer_class = ClienteSerializer
@@ -130,19 +168,20 @@ class ClienteViewSet(viewsets.ModelViewSet):
         return User.objects.filter(is_superuser=False).exclude(groups__name__in=['Supervisor', 'Tecnico'])
 
     def perform_create(self, serializer):
-        password_plano = serializer.validated_data.get('password', 'cliente123')
         instance = serializer.save()
-        if instance.email:
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        profile.debe_cambiar_password = True
+        profile.save()
+        password_plano = getattr(instance, '_raw_password', '')
+        if instance.email and password_plano:
             notificar_registro_cliente(instance, password_plano)
 
 class SupervisorViewSet(viewsets.ModelViewSet):
-    # ... (Se mantiene igual)
     queryset = User.objects.filter(groups__name='Supervisor')
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
 
 class TecnicoViewSet(viewsets.ModelViewSet):
-    # ... (Se mantiene igual)
     queryset = User.objects.filter(groups__name='Tecnico')
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
@@ -150,9 +189,15 @@ class TecnicoViewSet(viewsets.ModelViewSet):
 class AvanceViewSet(viewsets.ModelViewSet):
     queryset = Avance.objects.all().order_by('-creado_en')
     serializer_class = AvanceSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user
+        # Si es cliente, solo avances de sus propias órdenes
+        if user.groups.filter(name='Cliente').exists() and not user.is_superuser:
+            queryset = queryset.filter(orden__cliente=user)
+
         orden_id = self.request.query_params.get('orden', None)
         if orden_id:
             queryset = queryset.filter(orden_id=orden_id)
@@ -160,27 +205,40 @@ class AvanceViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         orden_id = request.data.get('orden')
-        if orden_id:
-            orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
-            
-            # --- 1. BLOQUEO GLOBAL (ABSOLUTO) ---
-            # Si está Finalizado, NADIE puede escribir. Ni el Admin.
-            if orden.estado.nombre == 'Finalizado':
-                raise PermissionDenied("⛔ La orden está FINALIZADA y cerrada. No se pueden agregar más registros.")
+        if not orden_id:
+            return Response({'detail': 'El campo orden es requerido.'}, status=400)
 
-            # --- 2. BLOQUEO PARA TÉCNICOS ---
-            # Si NO está finalizada, revisamos si es Técnico para aplicarle sus restricciones específicas
-            es_tecnico = request.user.groups.filter(name='Tecnico').exists()
-            
-            if es_tecnico and orden.estado.nombre in ['En Revisión', 'Pendiente']:
-                 raise PermissionDenied("No puedes agregar avances en el estado actual de la orden.")
+        orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
+        user = request.user
+        
+        # Validar permisos de acceso a la orden
+        es_personal = user.is_superuser or user.groups.filter(name__in=['Supervisor', 'Administrador']).exists()
+        es_asignado = (orden.tecnico == user) or (orden.supervisor == user) or (orden.cliente == user)
+        if not (es_personal or es_asignado):
+            raise PermissionDenied("No tienes permiso para agregar avances en esta orden de trabajo.")
 
-        # ... (El resto del código de fotos sigue igual) ...
+        # --- 1. BLOQUEO GLOBAL (ABSOLUTO) ---
+        # Si está Finalizado, NADIE puede escribir. Ni el Admin.
+        if orden.estado and orden.estado.nombre == 'Finalizado':
+            raise PermissionDenied("⛔ La orden está FINALIZADA y cerrada. No se pueden agregar más registros.")
+
+        # --- 2. BLOQUEO PARA TÉCNICOS ---
+        # Si NO está finalizada, revisamos si es Técnico para aplicarle sus restricciones específicas
+        es_tecnico = user.groups.filter(name='Tecnico').exists()
+        
+        if es_tecnico and orden.estado and orden.estado.nombre in ['En Revisión', 'Pendiente']:
+            raise PermissionDenied("No puedes agregar avances en el estado actual de la orden.")
+
         fotos = request.FILES.getlist('fotos')
+        for f in fotos:
+            validar_imagen(f)
+
+        if 'foto' in request.FILES:
+            validar_imagen(request.FILES['foto'])
         
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        avance = serializer.save(usuario=request.user)
+        avance = serializer.save(usuario=user)
 
         if fotos:
             for f in fotos:
@@ -196,23 +254,44 @@ class RegistroUsuarioViewSet(viewsets.ModelViewSet):
         return User.objects.filter(is_superuser=False).filter(groups__name__in=['Supervisor', 'Tecnico'])
 
     def perform_create(self, serializer):
-        # Capturamos la contraseña en texto plano ANTES de que el serializer la hashee
-        password_plano = serializer.validated_data.get('password', '')
         rol = serializer.validated_data.get('rol', '')
         instance = serializer.save()
-        # Enviamos el correo de bienvenida con las credenciales
-        notificar_bienvenida_personal(instance, password_plano, rol)
+        password_plano = getattr(instance, '_raw_password', '')
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        profile.debe_cambiar_password = True
+        profile.save()
+        # Enviamos el correo de bienvenida con las credenciales generadas
+        if instance.email and password_plano:
+            notificar_bienvenida_personal(instance, password_plano, rol)
 
 # ... (La función generar_reporte_pdf se mantiene igual) ...
 def link_callback(uri, rel):
-    """Convierte rutas file:// a rutas absolutas del sistema de archivos."""
+    """Convierte rutas file:// a rutas absolutas seguras del sistema de archivos."""
     if uri.startswith('file://'):
-        return uri[7:]
+        clean_path = uri[7:]
+        real_path = os.path.abspath(clean_path)
+        allowed_roots = [
+            os.path.abspath(str(settings.MEDIA_ROOT)),
+            os.path.abspath(str(settings.STATIC_ROOT)),
+            os.path.abspath(str(settings.BASE_DIR / 'static')),
+        ]
+        if any(real_path.startswith(root) for root in allowed_roots):
+            return real_path
+        return ''
     return uri
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def generar_reporte_pdf(request, pk):
     orden = get_object_or_404(OrdenTrabajo, pk=pk)
+    user = request.user
+
+    # Verificar autorización contra IDOR
+    es_personal = user.is_superuser or user.groups.filter(name__in=['Supervisor', 'Administrador']).exists()
+    es_asignado = (orden.tecnico == user) or (orden.supervisor == user) or (orden.cliente == user)
+    if not (es_personal or es_asignado):
+        raise PermissionDenied("No tienes permiso para generar o descargar el reporte de esta orden.")
+
     avances = orden.avances.all().order_by('creado_en')
     
     # Procesar avances para incluir rutas absolutas de fotos
@@ -229,7 +308,7 @@ def generar_reporte_pdf(request, pk):
         if avance.imagenes.exists():
             for foto in avance.imagenes.all():
                 ruta_completa = os.path.join(settings.MEDIA_ROOT, str(foto.foto))
-                avance_data['fotos'].append(ruta_completa)
+                avances_con_fotos.append(ruta_completa)
         # Si no hay FotoAvance pero hay foto en Avance
         elif avance.foto:
             ruta_completa = os.path.join(settings.MEDIA_ROOT, str(avance.foto))
@@ -257,7 +336,7 @@ def generar_reporte_pdf(request, pk):
     html = template.render(context)
     pisa_status = pisa.CreatePDF(html, dest=response, link_callback=link_callback)
     if pisa_status.err:
-       return HttpResponse('Error al generar PDF', status=500)
+        return HttpResponse('Error al generar PDF', status=500)
     return response
 
 class DashboardStatsView(APIView):
@@ -372,7 +451,33 @@ class PasswordResetConfirmView(APIView):
 
         user.set_password(password)
         user.save()
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.debe_cambiar_password = False
+        profile.save()
         return Response({'detail': 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'})
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAMBIO OBLIGATORIO DE CONTRASEÑA EN PRIMER INGRESO
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CambiarPasswordPrimerIngresoView(APIView):
+    """POST /api/cambiar-password-primer-ingreso/ — Establece contraseña definitiva para nuevos usuarios."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        password = request.data.get('password', '')
+        if len(password) < 6:
+            return Response({'detail': 'La contraseña debe tener al menos 6 caracteres.'}, status=400)
+
+        user = request.user
+        user.set_password(password)
+        user.save()
+
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.debe_cambiar_password = False
+        profile.save()
+
+        return Response({'detail': 'Contraseña actualizada exitosamente. Bienvenido a la plataforma.'})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MI PERFIL
@@ -423,10 +528,14 @@ class PerfilUsuarioView(APIView):
             if len(request.data['password']) < 6:
                 return Response({'detail': 'La contraseña debe tener al menos 6 caracteres.'}, status=400)
             user.set_password(request.data['password'])
+            profile, _ = Profile.objects.get_or_create(user=user)
+            profile.debe_cambiar_password = False
+            profile.save()
         
         user.save()
         
         if 'foto_perfil' in request.FILES:
+            validar_imagen(request.FILES['foto_perfil'])
             profile, _ = Profile.objects.get_or_create(user=user)
             profile.foto_perfil = request.FILES['foto_perfil']
             profile.save()

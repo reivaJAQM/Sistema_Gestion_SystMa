@@ -104,7 +104,7 @@ export default function GestionClientes() {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Formulario creación
-    const [formData, setFormData] = useState({ username: '', first_name: '', last_name: '', email: '', password: '' });
+    const [formData, setFormData] = useState({ username: '', first_name: '', last_name: '', email: '' });
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState('');
 
@@ -127,7 +127,7 @@ export default function GestionClientes() {
         return;
       }
       cargarClientes(); 
-    }, [cargarClientes]);
+    }, [cargarClientes, navigate, userRol]);
 
     // Filtrado por búsqueda
     const clientesFiltrados = clientes.filter(c => {
@@ -212,10 +212,10 @@ export default function GestionClientes() {
         setCreateError('');
         try {
             await api.post('clientes/', formData);
-            setFormData({ username: '', first_name: '', last_name: '', email: '', password: '' });
+            setFormData({ username: '', first_name: '', last_name: '', email: '' });
             await cargarClientes();
             setTabValue(0);
-            showSnack('Cliente registrado exitosamente.');
+            showSnack('Cliente registrado exitosamente. Se ha enviado la contraseña temporal por correo.');
         } catch (err) {
             const detail = err.response?.data;
             if (typeof detail === 'object') {
@@ -308,11 +308,9 @@ export default function GestionClientes() {
                                     <TextField fullWidth label="Apellido" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} required />
                                     <TextField fullWidth type="email" label="Correo Electrónico" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
                                 </Box>
-                                <TextField
-                                    fullWidth type="password" label="Contraseña" value={formData.password}
-                                    onChange={e => setFormData({ ...formData, password: e.target.value })} required
-                                    InputProps={{ startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" color="action" /></InputAdornment> }}
-                                />
+                                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                                    <strong>Contraseña Automática:</strong> Se generará una contraseña temporal segura y se enviará por correo electrónico al nuevo cliente. El cliente deberá cambiarla obligatoriamente en su primer inicio de sesión.
+                                </Alert>
                                 <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                                     <Button type="submit" variant="contained" size="large" disabled={createLoading}
                                         sx={{ minWidth: 280, borderRadius: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: '#0288d1', '&:hover': { bgcolor: '#01579b' } }}>

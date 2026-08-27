@@ -85,7 +85,7 @@ export default function Perfil() {
       setFotoPreview(null);
       setFotoFile(null);
       setSuccess('Foto de perfil eliminada.');
-    } catch (err) {
+    } catch {
       setError('Error al eliminar la foto de perfil.');
     }
   };

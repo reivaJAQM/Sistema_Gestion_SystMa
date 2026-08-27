@@ -4,12 +4,10 @@ asn1crypto==1.5.1
 certifi==2026.2.25
 cffi==2.0.0
 charset-normalizer==3.4.7
-cloudinary==1.44.2
 cryptography==46.0.7
 cssselect2==0.9.0
 dj-database-url==3.1.2
 Django==4.2.30
-django-cloudinary-storage==0.3.0
 django-cors-headers==4.9.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1

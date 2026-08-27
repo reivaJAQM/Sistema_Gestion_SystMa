@@ -8,14 +8,19 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Helper para sanitizar listas desde variables de entorno
+def parse_env_list(env_var, default=""):
+    raw = os.environ.get(env_var, default)
+    return [item.strip() for item in raw.split(',') if item.strip()]
+
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
-    'django-insecure-!gy&gv3d3p#k5a-i5xb%!=n!rxvypkztljm1cu0hmr!y+96*p5'
+    'django-insecure-systma-development-key-change-in-production'
 )
 
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = parse_env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -27,8 +32,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'servicios',
-    'cloudinary_storage',
-    'cloudinary',
 ]
 
 MIDDLEWARE = [
@@ -66,10 +69,10 @@ DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get(
             'DATABASE_URL',
-            'postgresql://postgres:Carmen25@localhost:5432/db_gestion_tic'
+            f'sqlite:///{BASE_DIR / "db.sqlite3"}'
         ),
         conn_max_age=600,
-        ssl_require=os.environ.get('DB_SSL', 'True').lower() in ('true', '1', 'yes'),
+        ssl_require=os.environ.get('DB_SSL', 'False' if DEBUG else 'True').lower() in ('true', '1', 'yes'),
     )
 }
 
@@ -87,22 +90,25 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOWED_ORIGINS = os.environ.get(
+CORS_ALLOWED_ORIGINS = parse_env_list(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
+)
 
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = os.environ.get(
+CSRF_TRUSTED_ORIGINS = parse_env_list(
     'CSRF_TRUSTED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
+)
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
 
 SIMPLE_JWT = {
@@ -116,23 +122,17 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
-if os.environ.get('USE_CLOUDINARY', 'False').lower() in ('true', '1', 'yes'):
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-    CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': os.environ['CLOUDINARY_CLOUD_NAME'],
-        'API_KEY': os.environ['CLOUDINARY_API_KEY'],
-        'API_SECRET': os.environ['CLOUDINARY_API_SECRET'],
-    }
-else:
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = BASE_DIR / 'media'
+# Almacenamiento local de medios (fotos de perfil, órdenes y avances en disco del servidor)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'alejandro14menende@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'cjcs pvog sezu ptvg')
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or 'noreply@systma.com'
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+

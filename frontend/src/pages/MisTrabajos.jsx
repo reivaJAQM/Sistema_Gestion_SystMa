@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Container, Typography, Box, Card, CardContent, CardActions, 
-  Button, Grid, Chip, CircularProgress, Tabs, Tab, Alert, Snackbar 
+  Button, Grid, Chip, CircularProgress, Tabs, Tab
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -13,14 +13,22 @@ export default function MisTrabajos() {
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0); 
-  const [estados, setEstados] = useState([]); 
-  
-  // Eliminamos el estado 'notificacion' si ya no lo vamos a usar para el inicio rápido
-  // const [notificacion, setNotificacion] = useState({ open: false, mensaje: '' });
   
   const navigate = useNavigate();
   const currentUserId = parseInt(localStorage.getItem('user_id'));
   const userRol = localStorage.getItem('user_rol');
+
+  const fetchDatos = useCallback(async () => {
+    try {
+      const resOrdenes = await api.get('ordenes/');
+      const misOrdenes = resOrdenes.data.filter(orden => orden.tecnico === currentUserId);
+      setOrdenes(misOrdenes);
+    } catch (error) {
+      console.error("Error cargando datos", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserId]);
 
   useEffect(() => {
     if (userRol !== 'Tecnico') {
@@ -29,23 +37,7 @@ export default function MisTrabajos() {
         return;
     }
     fetchDatos();
-  }, [userRol, navigate]);
-
-  const fetchDatos = async () => {
-    try {
-      const [resOrdenes, resEstados] = await Promise.all([
-        api.get('ordenes/'),
-        api.get('estados/')
-      ]);
-      const misOrdenes = resOrdenes.data.filter(orden => orden.tecnico === currentUserId);
-      setOrdenes(misOrdenes);
-      setEstados(resEstados.data);
-    } catch (error) {
-      console.error("Error cargando datos", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchDatos, navigate, userRol]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);

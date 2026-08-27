@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Container, Paper, Typography, Box, CircularProgress, 
   Card, CardContent, Divider, Chip, Grid, Button, Avatar
@@ -21,11 +21,7 @@ export default function DashboardCliente() {
   const usuario = localStorage.getItem('user_name');
   const userId = parseInt(localStorage.getItem('user_id'));
 
-  useEffect(() => {
-    fetchData();
-  }, [userId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const { data } = await api.get(`ordenes/?cliente=${userId}`);
       setOrdenes(data);
@@ -41,7 +37,11 @@ export default function DashboardCliente() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const KpiCard = ({ title, value, icon, color }) => (
     <Card sx={{ borderRadius: 3, boxShadow: '0px 4px 12px rgba(0,0,0,0.06)' }}>

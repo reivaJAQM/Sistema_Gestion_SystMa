@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
 from .models import Estado, OrdenTrabajo, Avance, FotoAvance 
 
+import secrets
+
 class ClienteSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
 
@@ -11,8 +13,13 @@ class ClienteSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password']
     
     def create(self, validated_data):
-        password = validated_data.pop('password', 'cliente123')
+        password = validated_data.pop('password', None)
+        if not password:
+            # Contraseña amigable y fácil de escribir: Systma + 4 dígitos (ej: Systma4821)
+            password = f"Systma{secrets.randbelow(9000) + 1000}"
+        # Guardamos la contraseña temporal en el objeto para que la vista pueda notificarla si aplica
         user = User.objects.create_user(**validated_data, password=password)
+        user._raw_password = password
         # Asignar al grupo "Cliente"
         try:
             grupo = Group.objects.get(name='Cliente')
@@ -70,10 +77,14 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         rol_nombre = validated_data.pop('rol', None)
-        password = validated_data.pop('password')
+        password = validated_data.pop('password', None)
+        if not password:
+            # Contraseña amigable y fácil de escribir: Systma + 4 dígitos (ej: Systma7391)
+            password = f"Systma{secrets.randbelow(9000) + 1000}"
 
         # Crear el usuario
         user = User.objects.create_user(**validated_data, password=password)
+        user._raw_password = password
         
         # Asignar al grupo correspondiente
         if rol_nombre:

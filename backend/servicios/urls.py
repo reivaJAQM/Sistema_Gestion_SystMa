@@ -5,7 +5,7 @@ from .views import (
     SupervisorViewSet, TecnicoViewSet, AvanceViewSet,
     RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView,
     PasswordResetRequestView, PasswordResetConfirmView, PerfilUsuarioView,
-    PersonalPerformanceView
+    PersonalPerformanceView, CambiarPasswordPrimerIngresoView
 )
 
 router = DefaultRouter()
@@ -20,10 +20,10 @@ router.register(r'crear-usuario', RegistroUsuarioViewSet, basename='crear-usuari
 urlpatterns = [
     path('', include(router.urls)),
     path('ordenes/<int:pk>/pdf/', generar_reporte_pdf, name='generar_pdf'),
-path('analiticas/rendimiento/', PersonalPerformanceView.as_view(), name='rendimiento_personal'),
-
+    path('analiticas/rendimiento/', PersonalPerformanceView.as_view(), name='rendimiento_personal'),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('perfil/', PerfilUsuarioView.as_view(), name='mi-perfil'),
+    path('cambiar-password-primer-ingreso/', CambiarPasswordPrimerIngresoView.as_view(), name='cambiar_password_primer_ingreso'),
 ]

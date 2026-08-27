@@ -1,25 +1,25 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     foto_perfil = models.ImageField(upload_to='perfiles/', null=True, blank=True)
+    debe_cambiar_password = models.BooleanField(default=False, verbose_name="Debe Cambiar Contraseña")
 
     def __str__(self):
         return f"Perfil de {self.user.username}"
 
-def crear_perfil(sender, instance, created, **kwargs):
+@receiver(post_save, sender=User)
+def crear_perfil_usuario(sender, instance, created, **kwargs):
     if created:
-        Profile.objects.create(user=instance)
+        Profile.objects.get_or_create(
+            user=instance,
+            defaults={'debe_cambiar_password': not instance.is_superuser}
+        )
 
-def guardar_perfil(sender, instance, **kwargs):
-    try:
-        instance.profile.save()
-    except Profile.DoesNotExist:
-        Profile.objects.create(user=instance)
-
-models.signals.post_save.connect(crear_perfil, sender=User)
-models.signals.post_save.connect(guardar_perfil, sender=User)
 
 class Estado(models.Model):
     nombre = models.CharField(max_length=50)

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Container, Typography, Box, Card, CardContent, CardActions, 
   Button, Grid, Chip, CircularProgress, TextField, InputAdornment, 
-  MenuItem, FormControl, Select, InputLabel, Paper, IconButton, Tooltip 
+  MenuItem, FormControl, Select, InputLabel, Paper, IconButton, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Alert
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -11,7 +12,9 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh'; // Icono extra para recargar
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -19,14 +22,31 @@ import { useNavigate, useLocation } from 'react-router-dom';
 export default function ListaTrabajos() {
   const [ordenes, setOrdenes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   
   // Filtros
   const [busqueda, setBusqueda] = useState('');
   const location = useLocation(); 
   const [filtroEstado, setFiltroEstado] = useState(location.state?.filtro || 'Todos');
 
+  // Modal Eliminación
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [ordenAEliminar, setOrdenAEliminar] = useState(null);
+
   const navigate = useNavigate();
   const userRol = localStorage.getItem('user_rol');
+
+  const fetchDatos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('ordenes/');
+      setOrdenes(data.sort((a, b) => b.id - a.id));
+    } catch (error) {
+      console.error("Error cargando lista", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (userRol === 'Cliente') {
@@ -38,17 +58,21 @@ export default function ListaTrabajos() {
       return;
     }
     fetchDatos();
-  }, [userRol, navigate]);
+  }, [fetchDatos, navigate, userRol]);
 
-  const fetchDatos = async () => {
-    setLoading(true);
+  const handleConfirmarEliminar = async () => {
+    if (!ordenAEliminar) return;
+    setActionLoading(true);
     try {
-      const { data } = await api.get('ordenes/');
-      setOrdenes(data.sort((a, b) => b.id - a.id));
+      await api.delete(`ordenes/${ordenAEliminar.id}/`);
+      setOpenDeleteModal(false);
+      setOrdenAEliminar(null);
+      fetchDatos();
     } catch (error) {
-      console.error("Error cargando lista", error);
+      console.error("Error al eliminar orden", error);
+      alert("Error al eliminar la orden de trabajo.");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -185,7 +209,7 @@ export default function ListaTrabajos() {
                             </Box>
                         </CardContent>
                         
-                        <CardActions sx={{ p: 2, pt: 0 }}>
+                        <CardActions sx={{ p: 2, pt: 0, display: 'flex', gap: 1 }}>
                             <Button 
                                 variant="contained" 
                                 fullWidth 
@@ -200,6 +224,26 @@ export default function ListaTrabajos() {
                             >
                                 Ver Detalle
                             </Button>
+                            {userRol === 'Administrador' && (
+                              <Tooltip title="Eliminar Orden">
+                                <IconButton 
+                                  color="error" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOrdenAEliminar(orden);
+                                    setOpenDeleteModal(true);
+                                  }}
+                                  sx={{ 
+                                    border: '1px solid', 
+                                    borderColor: 'error.light', 
+                                    borderRadius: 1,
+                                    '&:hover': { bgcolor: 'error.lighter' }
+                                  }}
+                                >
+                                  <DeleteOutlineIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                         </CardActions>
                     </Card>
                 </Grid>
@@ -214,6 +258,32 @@ export default function ListaTrabajos() {
             </Box>
         )}
       </Grid>
+
+      {/* MODAL ELIMINAR ORDEN (SOLO ADMIN) */}
+      <Dialog open={openDeleteModal} onClose={() => setOpenDeleteModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 'bold' }}>
+          <DeleteIcon /> ¿Eliminar Orden de Trabajo?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" color="text.primary" gutterBottom>
+            Esta acción eliminará de forma permanente la orden <strong>"{ordenAEliminar?.titulo}"</strong> (#{ordenAEliminar?.id}), junto con todas sus fotos y avances.
+          </Typography>
+          <Alert severity="error" sx={{ mt: 2 }}>
+            Esta operación no se puede deshacer.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDeleteModal(false)} color="inherit">Cancelar</Button>
+          <Button 
+            onClick={handleConfirmarEliminar} 
+            variant="contained" 
+            color="error" 
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={20} color="inherit" /> : "Sí, Eliminar Definitivamente"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

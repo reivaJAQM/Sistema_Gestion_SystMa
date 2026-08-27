@@ -15,10 +15,22 @@ import ResetearContrasena from './pages/ResetearContrasena';
 import Perfil from './pages/Perfil';
 import DashboardCliente from './pages/DashboardCliente';
 import RendimientoPersonal from './pages/RendimientoPersonal';
+import CambioPasswordObligatorio from './pages/CambioPasswordObligatorio';
 
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
-  return token ? children : <Navigate to="/login" />;
+  const debeCambiar = localStorage.getItem('debe_cambiar_password') === 'true';
+  if (!token) return <Navigate to="/login" />;
+  if (debeCambiar) return <Navigate to="/cambiar-password-obligatorio" />;
+  return children;
+};
+
+const RutaCambioObligatorio = () => {
+  const token = localStorage.getItem('access_token');
+  const debeCambiar = localStorage.getItem('debe_cambiar_password') === 'true';
+  if (!token) return <Navigate to="/login" />;
+  if (!debeCambiar) return <Navigate to="/" />;
+  return <CambioPasswordObligatorio />;
 };
 
 const RootRedirect = () => {
@@ -36,6 +48,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar" element={<RecuperarContrasena />} />
         <Route path="/resetear/:uid/:token" element={<ResetearContrasena />} />
+        <Route path="/cambiar-password-obligatorio" element={<RutaCambioObligatorio />} />
 
         <Route path="/*" element={
           <RutaPrivada>

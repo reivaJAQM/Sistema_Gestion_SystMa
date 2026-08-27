@@ -4,27 +4,46 @@ Cada función recibe la instancia del modelo y envía el email correspondiente.
 El envío está envuelto en try/except para no bloquear la operación principal
 si el servidor SMTP no está disponible.
 """
-from django.core.mail import send_mail
+import os
+from email.mime.image import MIMEImage
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 
 
 def _enviar(asunto, template, contexto, destinatario):
-    """Helper interno: renderiza el template HTML y envía el correo."""
+    """Helper interno: renderiza el template HTML, adjunta el logo de la empresa y envía el correo."""
     if not destinatario:
         return
     try:
-        html_content = render_to_string(template, contexto)
+        # Contexto global para todas las plantillas
+        contexto_completo = {
+            'frontend_url': settings.FRONTEND_URL,
+            **contexto
+        }
+        html_content = render_to_string(template, contexto_completo)
         text_content = strip_tags(html_content)
-        send_mail(
+
+        msg = EmailMultiAlternatives(
             subject=asunto,
-            message=text_content,
+            body=text_content,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[destinatario],
-            html_message=html_content,
-            fail_silently=False,
+            to=[destinatario],
         )
+        msg.attach_alternative(html_content, "text/html")
+
+        # Adjuntar logo corporativo como imagen inline (CID)
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'logo.png')
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as f:
+                img_data = f.read()
+            img = MIMEImage(img_data)
+            img.add_header('Content-ID', '<logo_empresa>')
+            img.add_header('Content-Disposition', 'inline', filename='logo.png')
+            msg.attach(img)
+
+        msg.send(fail_silently=False)
     except Exception as e:
         # El email falla silenciosamente para no romper la operación principal
         print(f"[EMAIL ERROR] No se pudo enviar '{asunto}' a {destinatario}: {e}")

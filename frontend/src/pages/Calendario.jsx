@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Container, Typography, Box, Button, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Chip, Divider, Avatar, Paper, Stack
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import AddIcon from '@mui/icons-material/Add';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
@@ -27,22 +27,13 @@ export default function Calendario() {
   const [eventos, setEventos] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // OBTENEMOS ROL Y ID
+  // OBTENEMOS ROL
   const userRol = localStorage.getItem('user_rol'); 
-  const userId = parseInt(localStorage.getItem('user_id'));
 
   const [modalOpen, setModalOpen] = useState(false);
   const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
 
-  useEffect(() => {
-    if (userRol === 'Cliente') {
-      navigate('/mis-solicitudes');
-      return;
-    }
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const responseOrdenes = await api.get('ordenes/');
       const eventosFormateados = responseOrdenes.data
@@ -74,7 +65,15 @@ export default function Calendario() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (userRol === 'Cliente') {
+      navigate('/mis-solicitudes');
+      return;
+    }
+    fetchData();
+  }, [fetchData, navigate, userRol]);
 
   const handleEventClick = (info) => {
     setOrdenSeleccionada({
@@ -104,18 +103,19 @@ export default function Calendario() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 6 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      {/* --- HEADER --- */}
+      <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'flex-start', md: 'center' },
+          gap: 2, mb: 4 
+      }}>
         <Box>
-          <Typography variant="h3" component="h1" sx={{ 
-            fontWeight: 900, 
-            background: 'linear-gradient(45deg, #1976d2 30%, #9c27b0 90%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '-1px'
-          }}>
+          <Typography variant="h4" fontWeight="800" sx={{ letterSpacing: '-0.5px' }}>
             Agenda de Trabajo
           </Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{ fontWeight: 500 }}>
+          <Typography variant="body1" color="text.secondary">
             Gestiona y visualiza la programación operativa
           </Typography>
         </Box>
@@ -123,23 +123,15 @@ export default function Calendario() {
         {userRol !== 'Tecnico' && (
           <Button 
             variant="contained" 
-            startIcon={<AddIcon />}
+            size="large"
+            startIcon={<AddCircleOutlineIcon />}
             onClick={() => navigate('/nueva-orden')}
             sx={{ 
-                borderRadius: '50px', 
-                px: 4, 
-                py: 1.5, 
+                borderRadius: '12px', 
                 textTransform: 'none', 
                 fontWeight: 'bold',
-                fontSize: '1rem',
-                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                boxShadow: '0 3px 15px rgba(33, 203, 243, 0.4)',
-                '&:hover': {
-                    background: 'linear-gradient(45deg, #1976d2 30%, #00bcd4 90%)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 6px 20px rgba(33, 203, 243, 0.6)',
-                },
-                transition: 'all 0.3s ease'
+                background: '#10b981', // Verde esmeralda consistente con Dashboard
+                '&:hover': { background: '#059669' }
             }}
           >
             Agendar Trabajo
@@ -147,13 +139,12 @@ export default function Calendario() {
         )}
       </Box>
 
-      <Paper elevation={0} sx={{ 
+      <Paper elevation={1} sx={{ 
           p: { xs: 2, md: 4 }, 
-          borderRadius: 4, 
-          bgcolor: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(255,255,255,0.5)',
+          borderRadius: '24px', 
+          bgcolor: '#ffffff',
+          boxShadow: '0px 10px 30px rgba(0,0,0, 0.04)',
+          border: '1px solid #e9ecef',
           mb: 5 
       }}>
         <FullCalendar

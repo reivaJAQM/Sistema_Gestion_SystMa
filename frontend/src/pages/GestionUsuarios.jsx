@@ -135,7 +135,7 @@ export default function GestionUsuarios() {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Formulario creación
-    const [formData, setFormData] = useState({ username: '', first_name: '', last_name: '', email: '', password: '', rol: '' });
+    const [formData, setFormData] = useState({ username: '', first_name: '', last_name: '', email: '', rol: 'Tecnico' });
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState('');
 
@@ -164,7 +164,7 @@ export default function GestionUsuarios() {
         return;
       }
       cargarPersonal(); 
-    }, [cargarPersonal]);
+    }, [cargarPersonal, navigate, userRol]);
 
     const listaSupervisores = personal.filter(p => p.rol_visual === 'Supervisor');
     const listaTecnicos     = personal.filter(p => p.rol_visual === 'Tecnico');
@@ -174,8 +174,8 @@ export default function GestionUsuarios() {
         setEditUser(user);
         setEditForm({
             username: user.username,
-            first_name: user.first_name ?? '',
-            last_name: user.last_name ?? '',
+            first_name: user.first_name,
+            last_name: user.last_name,
             email: user.email ?? '',
             password: '',
             rol: user.rol_visual ?? '',
@@ -245,11 +245,18 @@ export default function GestionUsuarios() {
         setCreateLoading(true);
         setCreateError('');
         try {
-            await api.post('crear-usuario/', formData);
-            setFormData({ username: '', first_name: '', last_name: '', email: '', password: '', rol: '' });
+            const payload = {
+                username: formData.username,
+                first_name: formData.first_name,
+                last_name: formData.last_name,
+                email: formData.email,
+                rol: formData.rol,
+            };
+            await api.post('crear-usuario/', payload);
+            setFormData({ username: '', first_name: '', last_name: '', email: '', rol: 'Tecnico' });
             await cargarPersonal();
             setTabValue(0);
-            showSnack('Personal registrado exitosamente.');
+            showSnack('Personal registrado exitosamente. Se ha enviado la contraseña temporal por correo.');
         } catch (err) {
             const detail = err.response?.data;
             if (typeof detail === 'object') {
@@ -355,20 +362,17 @@ export default function GestionUsuarios() {
                                     <TextField fullWidth label="Apellido" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} required />
                                     <TextField fullWidth type="email" label="Correo Electrónico" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
                                 </Box>
-                                <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                                    <TextField
-                                        fullWidth type="password" label="Contraseña" value={formData.password}
-                                        onChange={e => setFormData({ ...formData, password: e.target.value })} required
-                                        InputProps={{ startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" color="action" /></InputAdornment> }}
-                                    />
-                                    <TextField
-                                        select fullWidth label="Rol Asignado" value={formData.rol}
-                                        onChange={e => setFormData({ ...formData, rol: e.target.value })} required
-                                    >
-                                        <MenuItem value="Tecnico"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><BuildIcon color="warning" fontSize="small" /> Técnico</Box></MenuItem>
-                                        <MenuItem value="Supervisor"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SupervisorAccountIcon color="secondary" fontSize="small" /> Supervisor</Box></MenuItem>
-                                    </TextField>
-                                </Box>
+                                <TextField
+                                    select fullWidth label="Rol Asignado" value={formData.rol}
+                                    onChange={e => setFormData({ ...formData, rol: e.target.value })} required
+                                >
+                                    <MenuItem value="Tecnico"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><BuildIcon color="warning" fontSize="small" /> Técnico</Box></MenuItem>
+                                    <MenuItem value="Supervisor"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><SupervisorAccountIcon color="secondary" fontSize="small" /> Supervisor</Box></MenuItem>
+                                </TextField>
+
+                                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                                    <strong>Contraseña Automática:</strong> Se generará una contraseña temporal segura y se enviará por correo electrónico al nuevo empleado. El sistema le solicitará cambiarla obligatoriamente en su primer inicio de sesión.
+                                </Alert>
                                 <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                                     <Button type="submit" variant="contained" size="large" disabled={createLoading}
                                         sx={{ minWidth: 280, borderRadius: 2, fontSize: '1rem', fontWeight: 'bold' }}>

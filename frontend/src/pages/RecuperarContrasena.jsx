@@ -23,7 +23,7 @@ export default function RecuperarContrasena() {
         try {
             await api.post('password-reset/', { email });
             setEnviado(true);
-        } catch (err) {
+        } catch {
             setError('Ocurrió un error. Inténtalo de nuevo.');
         } finally {
             setLoading(false);

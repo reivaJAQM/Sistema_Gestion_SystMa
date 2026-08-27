@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Container, Paper, TextField, Button, Typography, Box, 
   Dialog, DialogTitle, DialogContent, DialogActions, 
@@ -28,7 +28,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // --- COMPONENTE MARCADOR CLICKEABLE ---
-function LocationMarker({ setPosicion, setDireccion }) {
+function LocationMarker({ setPosicion }) {
     const [position, setPosition] = useState(null);
     const map = useMapEvents({
         click(e) {
@@ -84,15 +84,7 @@ export default function CrearOrden() {
     horariosDisponibles.push(horaStr);
   }
 
-  useEffect(() => {
-    if (userRol === 'Cliente' || userRol === 'Tecnico') {
-        navigate('/mis-solicitudes');
-        return;
-    }
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
         const promesas = [
             api.get('clientes/'),
@@ -107,7 +99,15 @@ export default function CrearOrden() {
     } catch (error) {
         console.error("Error cargando listas", error);
     }
-  };
+  }, [userRol]);
+
+  useEffect(() => {
+    if (userRol === 'Cliente' || userRol === 'Tecnico') {
+        navigate('/mis-solicitudes');
+        return;
+    }
+    cargarDatos();
+  }, [cargarDatos, navigate, userRol]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

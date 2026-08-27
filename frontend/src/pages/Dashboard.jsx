@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Container, Paper, Typography, Box, CircularProgress, 
   Card, CardContent, Divider, Button, Alert
@@ -32,19 +32,7 @@ export default function Dashboard() {
   const userRol = localStorage.getItem('user_rol');
   const userId = parseInt(localStorage.getItem('user_id'));
 
-  useEffect(() => {
-    if (userRol === 'Cliente') {
-        navigate('/mis-solicitudes');
-        return;
-    }
-    if (userRol === 'Tecnico') {
-        navigate('/calendario');
-        return;
-    }
-    fetchData();
-  }, [userRol, navigate]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const { data } = await api.get('ordenes/');
       
@@ -70,13 +58,24 @@ export default function Dashboard() {
         { name: 'En Revisión', cantidad: en_revision, color: '#ed6c02' },
         { name: 'Finalizados', cantidad: finalizados, color: '#2e7d32' },
       ]);
-
     } catch (error) {
       console.error("Error cargando dashboard", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, userRol]);
+
+  useEffect(() => {
+    if (userRol === 'Cliente') {
+        navigate('/mis-solicitudes');
+        return;
+    }
+    if (userRol === 'Tecnico') {
+        navigate('/calendario');
+        return;
+    }
+    fetchData();
+  }, [fetchData, navigate, userRol]);
 
   const KpiCard = ({ title, value, icon, color, onClick }) => (
     <Card 

@@ -255,7 +255,7 @@ export default function RendimientoPersonal() {
                 Eficiencia por Técnico (%)
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', mt: 1 }}>
-                {data.map((tech, index) => (
+                {data.map((tech) => (
                   <Box key={tech.id}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="body2" fontWeight="700" sx={{ color: '#2D3748' }}>
