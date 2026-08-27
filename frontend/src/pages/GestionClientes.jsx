@@ -325,7 +325,7 @@ export default function GestionClientes() {
 
             {/* ====== MODAL EDITAR ====== */}
             <Dialog open={editOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
-                <DialogTitle fontWeight="bold">✏️ Editar Cliente</DialogTitle>
+                <DialogTitle fontWeight="bold">Editar Cliente</DialogTitle>
                 <DialogContent dividers>
                     {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -365,7 +365,7 @@ export default function GestionClientes() {
                     {!deleteInfo.loading && deleteInfo.ordenes.length > 0 && (
                         <Alert severity="error" icon={<WarningAmberIcon />} sx={{ mt: 2 }}>
                             <Typography variant="body2" fontWeight="bold" gutterBottom>
-                                ⚠️ Tiene {deleteInfo.ordenes.length} orden{deleteInfo.ordenes.length !== 1 ? 'es' : ''} de trabajo registrada{deleteInfo.ordenes.length !== 1 ? 's' : ''}.
+                                Tiene {deleteInfo.ordenes.length} orden{deleteInfo.ordenes.length !== 1 ? 'es' : ''} de trabajo registrada{deleteInfo.ordenes.length !== 1 ? 's' : ''}.
                             </Typography>
                             <Typography variant="caption">
                                 <strong>¡Atención!</strong> Al ser el titular de esas órdenes, <strong>todas se eliminarán permanentemente</strong> junto con sus avances y registros.

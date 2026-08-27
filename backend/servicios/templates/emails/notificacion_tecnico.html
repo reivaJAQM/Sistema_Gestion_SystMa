@@ -23,7 +23,7 @@
       <div style="text-align: center; margin-bottom: 14px;">
         <img src="cid:logo_empresa" alt="SystMa" style="height: 55px; max-height: 55px; width: auto; max-width: 180px; display: inline-block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); border-radius: 8px;" />
       </div>
-      <h1>📋 Nueva Orden Asignada</h1>
+      <h1>Nueva Orden Asignada</h1>
       <p>Sistema de Gestión SystMa</p>
     </div>
     <div class="body">
@@ -33,8 +33,8 @@
       <div class="orden-box">
         <h3>{{ orden.titulo }}</h3>
         {% if orden.descripcion %}<p>{{ orden.descripcion }}</p>{% endif %}
-        {% if orden.direccion %}<p>📍 {{ orden.direccion }}</p>{% endif %}
-        {% if orden.fecha_inicio %}<p>📅 Inicio: {{ orden.fecha_inicio|date:"d/m/Y H:i" }}</p>{% endif %}
+        {% if orden.direccion %}<p>Ubicación: {{ orden.direccion }}</p>{% endif %}
+        {% if orden.fecha_inicio %}<p>Inicio: {{ orden.fecha_inicio|date:"d/m/Y H:i" }}</p>{% endif %}
       </div>
       <p>Ingresa al sistema para ver más detalles y comenzar a registrar avances.</p>
       <a href="{{ frontend_url }}/trabajo/{{ orden.id }}" class="btn">Ver Orden de Trabajo →</a>

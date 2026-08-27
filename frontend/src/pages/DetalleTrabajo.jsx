@@ -4,7 +4,8 @@ import {
     Container, Typography, Box, Paper, TextField, Button, Divider,
     List, ListItem, ListItemText, ListItemAvatar, Avatar, CircularProgress, Alert, Grid,
     Dialog, DialogTitle, DialogContent, DialogActions, Chip, IconButton,
-    MenuItem, FormControl, Select, InputLabel, Stack
+    MenuItem, FormControl, Select, InputLabel, Stack,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, CardContent
 } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import SendIcon from '@mui/icons-material/Send';
@@ -24,6 +25,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import HandymanIcon from '@mui/icons-material/Handyman';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import BuildIcon from '@mui/icons-material/Build';
+import AddIcon from '@mui/icons-material/Add';
 
 import api from '../services/api';
 
@@ -51,6 +56,20 @@ export default function DetalleTrabajo() {
     const [avances, setAvances] = useState([]);
     const [nuevoTexto, setNuevoTexto] = useState('');
     const [nuevasFotos, setNuevasFotos] = useState([]);
+
+    // Estados para Inventario (Herramientas y Materiales)
+    const [herramientasAsignadas, setHerramientasAsignadas] = useState([]);
+    const [materialesUsados, setMaterialesUsados] = useState([]);
+    const [catalogoMateriales, setCatalogoMateriales] = useState([]);
+    
+    // Modales de Inventario
+    const [openModalConsumo, setOpenModalConsumo] = useState(false);
+    const [materialSeleccionadoConsumo, setMaterialSeleccionadoConsumo] = useState(null);
+    const [cantidadConsumoInput, setCantidadConsumoInput] = useState('');
+
+    const [openModalAddMaterial, setOpenModalAddMaterial] = useState(false);
+    const [nuevoMatId, setNuevoMatId] = useState('');
+    const [nuevaCantEst, setNuevaCantEst] = useState('');
 
     const [loading, setLoading] = useState(true);
     const [openRechazo, setOpenRechazo] = useState(false);
@@ -86,10 +105,12 @@ export default function DetalleTrabajo() {
 
     const cargarDatos = useCallback(async () => {
         try {
-            const [resOrden, resAvances, resEstados] = await Promise.all([
+            const [resOrden, resAvances, resEstados, resHerramientas, resMateriales] = await Promise.all([
                 api.get(`ordenes/${id}/`),
                 api.get(`avances/?orden=${id}`),
-                api.get('estados/')
+                api.get('estados/'),
+                api.get(`orden-herramientas/?orden=${id}`),
+                api.get(`orden-materiales/?orden=${id}`)
             ]);
             // Si es cliente, verificar que la orden le pertenece
             if (userRol === 'Cliente' && resOrden.data.cliente !== userId) {
@@ -100,6 +121,8 @@ export default function DetalleTrabajo() {
             setOrden(resOrden.data);
             setAvances(resAvances.data);
             setEstados(resEstados.data);
+            setHerramientasAsignadas(resHerramientas.data);
+            setMaterialesUsados(resMateriales.data);
         } catch (error) {
             console.error("Error al cargar datos", error);
         } finally {
@@ -223,6 +246,96 @@ export default function DetalleTrabajo() {
         }
     };
 
+    // --- HANDLERS DE GESTIÓN DE INVENTARIO Y HERRAMIENTAS ---
+    const handleDevolverHerramienta = async (asigId, herramientaNombre) => {
+        if (!window.confirm(`¿Confirmar que la herramienta "${herramientaNombre}" fue devuelta al almacén?`)) return;
+        setActionLoading(true);
+        try {
+            await api.post(`orden-herramientas/${asigId}/marcar-devolucion/`, {});
+            cargarDatos();
+        } catch (error) {
+            console.error("Error al devolver herramienta", error);
+            alert("Error al registrar la devolución de la herramienta.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleAbrirModalConsumo = (uso) => {
+        setMaterialSeleccionadoConsumo(uso);
+        setCantidadConsumoInput(uso.cantidad_real > 0 ? uso.cantidad_real : uso.cantidad_estimada);
+        setOpenModalConsumo(true);
+    };
+
+    const handleGuardarConsumo = async (e) => {
+        e.preventDefault();
+        if (!cantidadConsumoInput || Number(cantidadConsumoInput) < 0) {
+            return alert("Ingresa una cantidad válida.");
+        }
+        setActionLoading(true);
+        try {
+            await api.post(`orden-materiales/${materialSeleccionadoConsumo.id}/registrar-consumo/`, {
+                cantidad_real: cantidadConsumoInput
+            });
+            setOpenModalConsumo(false);
+            cargarDatos();
+        } catch (error) {
+            console.error("Error al registrar consumo", error);
+            alert("Error al registrar el consumo del material.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleAbrirModalAddMaterial = async () => {
+        try {
+            const res = await api.get('inventario/?tipo=MATERIAL');
+            setCatalogoMateriales(res.data);
+            setNuevoMatId('');
+            setNuevaCantEst('');
+            setOpenModalAddMaterial(true);
+        } catch (error) {
+            console.error("Error cargando materiales", error);
+            alert("Error al cargar el catálogo de materiales.");
+        }
+    };
+
+    const handleGuardarNuevoMaterial = async (e) => {
+        e.preventDefault();
+        if (!nuevoMatId) return alert("Selecciona un material.");
+        if (!nuevaCantEst || Number(nuevaCantEst) <= 0) return alert("Ingresa una cantidad válida.");
+        setActionLoading(true);
+        try {
+            await api.post('orden-materiales/', {
+                orden: id,
+                material: nuevoMatId,
+                cantidad_estimada: nuevaCantEst,
+                cantidad_real: 0
+            });
+            setOpenModalAddMaterial(false);
+            cargarDatos();
+        } catch (error) {
+            console.error("Error al asociar material", error);
+            alert("Error al añadir el material a la orden.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleEliminarMaterialUso = async (usoId) => {
+        if (!window.confirm("¿Eliminar este material de la orden?")) return;
+        setActionLoading(true);
+        try {
+            await api.delete(`orden-materiales/${usoId}/`);
+            cargarDatos();
+        } catch (error) {
+            console.error("Error al eliminar material", error);
+            alert("Error al eliminar material.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleEnviarAvance = async (e) => {
         e.preventDefault();
         if (!nuevoTexto && nuevasFotos.length === 0) return alert("Escribe algo o sube fotos");
@@ -325,7 +438,7 @@ export default function DetalleTrabajo() {
 
             const formData = new FormData();
             formData.append('orden', id);
-            formData.append('contenido', `❌ RECHAZADO: ${motivoRechazo}`);
+            formData.append('contenido', `RECHAZADO: ${motivoRechazo}`);
             await api.post('avances/', formData);
 
             await api.patch(`ordenes/${id}/`, { estado: estadoProgreso.id });
@@ -540,10 +653,170 @@ export default function DetalleTrabajo() {
                 )}
             </Paper>
 
+            {/* ==================================================================== */}
+            {/* PANEL: HERRAMIENTAS Y MATERIALES ASIGNADOS */}
+            {/* ==================================================================== */}
+            <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: '16px' }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
+                    <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <HandymanIcon color="primary" /> Herramientas y Materiales de la Orden
+                    </Typography>
+
+                    {userRol !== 'Cliente' && orden.estado_data?.nombre !== 'Finalizado' && (
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            onClick={handleAbrirModalAddMaterial}
+                            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
+                        >
+                            Añadir Material
+                        </Button>
+                    )}
+                </Box>
+                <Divider sx={{ mb: 2.5 }} />
+
+                <Grid container spacing={3}>
+                    {/* COLUMNA 1: HERRAMIENTAS RETORNABLES */}
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" fontWeight="bold" color="#475569" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <BuildIcon fontSize="small" color="action" /> Herramientas Asignadas ({herramientasAsignadas.length})
+                        </Typography>
+
+                        {herramientasAsignadas.length === 0 ? (
+                            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center' }}>
+                                <Typography variant="body2" color="#94a3b8">No se asignaron herramientas a esta orden.</Typography>
+                            </Box>
+                        ) : (
+                            <Stack spacing={1.5}>
+                                {herramientasAsignadas.map((asig) => (
+                                    <Box
+                                        key={asig.id}
+                                        sx={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            p: 1.5,
+                                            borderRadius: 2,
+                                            bgcolor: asig.devuelta ? '#f0fdf4' : '#fffbeb',
+                                            border: `1px solid ${asig.devuelta ? '#bbf7d0' : '#fde68a'}`
+                                        }}
+                                    >
+                                        <Box>
+                                            <Typography variant="body2" fontWeight="bold" color="#1e293b">
+                                                {asig.herramienta_nombre} {asig.cantidad > 1 ? `(x${asig.cantidad})` : ''}
+                                            </Typography>
+                                            <Typography variant="caption" color="#64748b">
+                                                Cantidad: {asig.cantidad || 1} {asig.cantidad > 1 ? 'Unidades' : 'Unidad'}
+                                            </Typography>
+                                        </Box>
+
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chip
+                                                size="small"
+                                                label={asig.devuelta ? "Devuelta" : "En Uso"}
+                                                color={asig.devuelta ? "success" : "warning"}
+                                                sx={{ fontWeight: 'bold' }}
+                                            />
+
+                                            {!asig.devuelta && userRol !== 'Cliente' && (
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    color="success"
+                                                    onClick={() => handleDevolverHerramienta(asig.id, asig.herramienta_nombre)}
+                                                    sx={{ textTransform: 'none', py: 0.2, fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '6px' }}
+                                                >
+                                                    Devolver
+                                                </Button>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        )}
+                    </Grid>
+
+                    {/* COLUMNA 2: MATERIALES CONSUMIBLES */}
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" fontWeight="bold" color="#475569" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Inventory2Icon fontSize="small" color="action" /> Materiales Consumidos ({materialesUsados.length})
+                        </Typography>
+
+                        {materialesUsados.length === 0 ? (
+                            <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center' }}>
+                                <Typography variant="body2" color="#94a3b8">No se han registrado materiales para esta orden.</Typography>
+                            </Box>
+                        ) : (
+                            <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                <Table size="small">
+                                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                        <TableRow>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Material</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Estimado</TableCell>
+                                            <TableCell sx={{ fontWeight: 'bold' }}>Consumido</TableCell>
+                                            {userRol !== 'Cliente' && orden.estado_data?.nombre !== 'Finalizado' && (
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Acción</TableCell>
+                                            )}
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {materialesUsados.map((uso) => (
+                                            <TableRow key={uso.id} hover>
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight="bold">
+                                                        {uso.material_nombre}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {uso.material_codigo}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ color: '#64748b' }}>
+                                                    {uso.cantidad_estimada} {uso.material_unidad}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        size="small"
+                                                        label={`${uso.cantidad_real} ${uso.material_unidad}`}
+                                                        color={Number(uso.cantidad_real) > 0 ? "primary" : "default"}
+                                                        sx={{ fontWeight: 'bold' }}
+                                                    />
+                                                </TableCell>
+                                                {userRol !== 'Cliente' && orden.estado_data?.nombre !== 'Finalizado' && (
+                                                    <TableCell align="right">
+                                                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => handleAbrirModalConsumo(uso)}
+                                                                sx={{ textTransform: 'none', py: 0.1, px: 1, fontSize: '0.75rem', borderRadius: 1 }}
+                                                            >
+                                                                {Number(uso.cantidad_real) > 0 ? "Ajustar" : "Registrar"}
+                                                            </Button>
+                                                            <IconButton
+                                                                size="small"
+                                                                color="error"
+                                                                onClick={() => handleEliminarMaterialUso(uso.id)}
+                                                            >
+                                                                <DeleteOutlineIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Stack>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+                    </Grid>
+                </Grid>
+            </Paper>
+
             {/* FORMULARIO BITÁCORA */}
             {userRol !== 'Cliente' && !esPendiente && !esRevision && orden.estado_data?.nombre !== 'Finalizado' && (
                 <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-                    <Typography variant="h6" gutterBottom>📝 Bitácora de Avances</Typography>
+                    <Typography variant="h6" gutterBottom>Bitácora de Avances</Typography>
                     <Box component="form" onSubmit={handleEnviarAvance}>
                         <TextField
                             placeholder="Escribe aquí los detalles del trabajo..."
@@ -740,7 +1013,7 @@ export default function DetalleTrabajo() {
             {/* MODAL EDITAR ORDEN (ADMIN / SUPERVISOR) */}
             <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ fontWeight: 'bold' }}>
-                    ✏️ Editar Orden de Trabajo #{orden?.id}
+                    Editar Orden de Trabajo #{orden?.id}
                 </DialogTitle>
                 <Box component="form" onSubmit={handleGuardarEdicion}>
                     <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -857,6 +1130,89 @@ export default function DetalleTrabajo() {
                         </Button>
                     </DialogActions>
                 </Box>
+            </Dialog>
+
+            {/* ==================================================================== */}
+            {/* MODAL: REGISTRAR / AJUSTAR CONSUMO REAL DE MATERIAL */}
+            {/* ==================================================================== */}
+            <Dialog open={openModalConsumo} onClose={() => setOpenModalConsumo(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+                <form onSubmit={handleGuardarConsumo}>
+                    <DialogTitle sx={{ fontWeight: 'bold' }}>
+                        Registrar Consumo de Material
+                    </DialogTitle>
+                    <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {materialSeleccionadoConsumo && (
+                            <Box sx={{ p: 1.5, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                <Typography variant="subtitle2" fontWeight="bold" color="#1e293b">
+                                    {materialSeleccionadoConsumo.material_nombre}
+                                </Typography>
+                                <Typography variant="caption" color="#64748b">
+                                    Cantidad Estimada: {materialSeleccionadoConsumo.cantidad_estimada} {materialSeleccionadoConsumo.material_unidad}
+                                </Typography>
+                            </Box>
+                        )}
+                        <TextField
+                            label="Cantidad Real Utilizada"
+                            type="number"
+                            required
+                            autoFocus
+                            fullWidth
+                            inputProps={{ min: "0", step: "any" }}
+                            value={cantidadConsumoInput}
+                            onChange={(e) => setCantidadConsumoInput(e.target.value)}
+                            helperText="Esta cantidad se descontará automáticamente del stock en almacén."
+                        />
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2 }}>
+                        <Button onClick={() => setOpenModalConsumo(false)} color="inherit">Cancelar</Button>
+                        <Button type="submit" variant="contained" color="primary" disabled={actionLoading}>
+                            {actionLoading ? <CircularProgress size={20} /> : "Confirmar Consumo"}
+                        </Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
+
+            {/* ==================================================================== */}
+            {/* MODAL: AÑADIR MATERIAL A LA ORDEN EN EJECUCIÓN */}
+            {/* ==================================================================== */}
+            <Dialog open={openModalAddMaterial} onClose={() => setOpenModalAddMaterial(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+                <form onSubmit={handleGuardarNuevoMaterial}>
+                    <DialogTitle sx={{ fontWeight: 'bold' }}>
+                        Añadir Material a la Orden
+                    </DialogTitle>
+                    <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <TextField
+                            select
+                            label="Seleccionar Material del Catálogo"
+                            required
+                            fullWidth
+                            value={nuevoMatId}
+                            onChange={(e) => setNuevoMatId(e.target.value)}
+                        >
+                            {catalogoMateriales.map((m) => (
+                                <MenuItem key={m.id} value={m.id}>
+                                    {m.nombre} (Stock: {m.stock_actual} {m.unidad_medida})
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        <TextField
+                            label="Cantidad Estimada / Requerida"
+                            type="number"
+                            required
+                            fullWidth
+                            inputProps={{ min: "0.01", step: "any" }}
+                            value={nuevaCantEst}
+                            onChange={(e) => setNuevaCantEst(e.target.value)}
+                        />
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2 }}>
+                        <Button onClick={() => setOpenModalAddMaterial(false)} color="inherit">Cancelar</Button>
+                        <Button type="submit" variant="contained" color="info" disabled={actionLoading}>
+                            {actionLoading ? <CircularProgress size={20} /> : "Añadir Material"}
+                        </Button>
+                    </DialogActions>
+                </form>
             </Dialog>
 
         </Container>

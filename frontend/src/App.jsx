@@ -16,6 +16,7 @@ import Perfil from './pages/Perfil';
 import DashboardCliente from './pages/DashboardCliente';
 import RendimientoPersonal from './pages/RendimientoPersonal';
 import CambioPasswordObligatorio from './pages/CambioPasswordObligatorio';
+import GestionInventario from './pages/GestionInventario';
 
 const RutaPrivada = ({ children }) => {
   const token = localStorage.getItem('access_token');
@@ -66,7 +67,7 @@ function App() {
               <Route path="/todos-los-trabajos" element={<ListaTrabajos />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/rendimiento" element={<RendimientoPersonal />} />
-              
+              <Route path="/inventario" element={<GestionInventario />} />
             </Routes>
           </RutaPrivada>
         } />

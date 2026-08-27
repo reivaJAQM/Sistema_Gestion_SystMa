@@ -122,6 +122,58 @@
     <div class="seccion">DESCRIPCIÓN DEL REQUERIMIENTO</div>
     <p style="text-align: justify; line-height: 1.4;">{{ orden.descripcion }}</p>
 
+    {% if materiales %}
+    <div class="seccion">MATERIALES E INSUMOS CONSUMIDOS</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%;">Código</th>
+                <th style="width: 45%;">Descripción del Material</th>
+                <th style="width: 15%;">Estimado</th>
+                <th style="width: 15%;">Consumido Real</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mat in materiales %}
+            <tr>
+                <td>{{ mat.material.codigo }}</td>
+                <td>{{ mat.material.nombre }}</td>
+                <td>{{ mat.cantidad_estimada }} {{ mat.material.unidad_medida }}</td>
+                <td><strong>{{ mat.cantidad_real }} {{ mat.material.unidad_medida }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if herramientas %}
+    <div class="seccion">EQUIPOS Y HERRAMIENTAS ASIGNADAS</div>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 30%;">Código</th>
+                <th style="width: 50%;">Nombre del Equipo</th>
+                <th style="width: 20%;">Estado Devolución</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in herramientas %}
+            <tr>
+                <td>{{ h.herramienta.codigo }}</td>
+                <td>{{ h.herramienta.nombre }}</td>
+                <td>
+                    {% if h.devuelta %}
+                        <span style="color: green; font-weight: bold;">Devuelta</span>
+                    {% else %}
+                        <span style="color: orange; font-weight: bold;">En Uso</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
     <div class="seccion">BITÁCORA DE AVANCES Y EVIDENCIAS</div>
     <table>
         <thead>

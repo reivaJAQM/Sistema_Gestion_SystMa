@@ -5,7 +5,9 @@ from .views import (
     SupervisorViewSet, TecnicoViewSet, AvanceViewSet,
     RegistroUsuarioViewSet, generar_reporte_pdf, DashboardStatsView,
     PasswordResetRequestView, PasswordResetConfirmView, PerfilUsuarioView,
-    PersonalPerformanceView, CambiarPasswordPrimerIngresoView
+    PersonalPerformanceView, CambiarPasswordPrimerIngresoView,
+    ItemInventarioViewSet, HerramientaAsignadaViewSet, MaterialUsadoViewSet,
+    MovimientoInventarioViewSet
 )
 
 router = DefaultRouter()
@@ -16,6 +18,10 @@ router.register(r'supervisores', SupervisorViewSet, basename='supervisor')
 router.register(r'tecnicos', TecnicoViewSet, basename='tecnico')
 router.register(r'avances', AvanceViewSet)
 router.register(r'crear-usuario', RegistroUsuarioViewSet, basename='crear-usuario')
+router.register(r'inventario', ItemInventarioViewSet, basename='inventario')
+router.register(r'orden-herramientas', HerramientaAsignadaViewSet, basename='orden-herramientas')
+router.register(r'orden-materiales', MaterialUsadoViewSet, basename='orden-materiales')
+router.register(r'movimientos-inventario', MovimientoInventarioViewSet, basename='movimientos-inventario')
 
 urlpatterns = [
     path('', include(router.urls)),

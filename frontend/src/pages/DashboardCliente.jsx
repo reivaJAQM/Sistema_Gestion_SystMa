@@ -69,7 +69,7 @@ export default function DashboardCliente() {
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="900" sx={{ color: '#1a202c' }}>
-          Hola, {usuario} 👋
+          Hola, {usuario}
         </Typography>
         <Typography variant="subtitle1" sx={{ color: '#718096', mt: 0.5 }}>
           Aquí puedes ver el estado de tus solicitudes de trabajo
@@ -124,7 +124,7 @@ export default function DashboardCliente() {
                         </Typography>
                         {orden.fecha_inicio && (
                           <Typography variant="caption" color="#1976d2">
-                            📅 {new Date(orden.fecha_inicio).toLocaleDateString()}
+                            Programado: {new Date(orden.fecha_inicio).toLocaleDateString()}
                           </Typography>
                         )}
                       </Box>

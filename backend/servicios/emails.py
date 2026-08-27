@@ -58,7 +58,7 @@ def notificar_tecnico_asignado(orden):
     if not orden.tecnico or not orden.tecnico.email:
         return
     _enviar(
-        asunto=f"📋 Nueva orden asignada: {orden.titulo}",
+        asunto=f"Nueva orden asignada: {orden.titulo}",
         template="emails/notificacion_tecnico.html",
         contexto={
             'orden': orden,
@@ -74,7 +74,7 @@ def notificar_supervisor_asignado(orden):
     if not orden.supervisor or not orden.supervisor.email:
         return
     _enviar(
-        asunto=f"🔍 Orden bajo tu supervisión: {orden.titulo}",
+        asunto=f"Orden bajo tu supervisión: {orden.titulo}",
         template="emails/notificacion_supervisor.html",
         contexto={
             'orden': orden,
@@ -99,7 +99,7 @@ def notificar_cambio_estado(orden, estado_anterior):
     # "En Revisión" → avisa al supervisor
     if estado_nuevo == 'En Revisión' and orden.supervisor and orden.supervisor.email:
         _enviar(
-            asunto=f"⏳ Orden lista para revisión: {orden.titulo}",
+            asunto=f"Orden lista para revisión: {orden.titulo}",
             template="emails/notificacion_en_revision.html",
             contexto={
                 'orden': orden,
@@ -112,7 +112,7 @@ def notificar_cambio_estado(orden, estado_anterior):
     # "Finalizado" → avisa al cliente
     elif estado_nuevo == 'Finalizado' and orden.cliente and orden.cliente.email:
         _enviar(
-            asunto=f"✅ Tu orden de trabajo fue completada: {orden.titulo}",
+            asunto=f"Tu orden de trabajo fue completada: {orden.titulo}",
             template="emails/notificacion_finalizado.html",
             contexto={
                 'orden': orden,
@@ -125,7 +125,7 @@ def notificar_cambio_estado(orden, estado_anterior):
     # "Cancelado" → avisa al cliente
     elif estado_nuevo == 'Cancelado' and orden.cliente and orden.cliente.email:
         _enviar(
-            asunto=f"❌ Tu orden de trabajo fue cancelada: {orden.titulo}",
+            asunto=f"Tu orden de trabajo fue cancelada: {orden.titulo}",
             template="emails/notificacion_cancelado.html",
             contexto={
                 'orden': orden,
@@ -145,7 +145,7 @@ def enviar_email_recuperacion(user, reset_url):
     if not user.email:
         return
     _enviar(
-        asunto="🔐 Recupera tu contraseña — SystMa",
+        asunto="Recupera tu contraseña — SystMa",
         template="emails/recuperar_contrasena.html",
         contexto={
             'usuario': user,
@@ -160,7 +160,7 @@ def notificar_bienvenida_personal(user, password_temporal, rol):
     if not user.email:
         return
     _enviar(
-        asunto="👋 Bienvenido a SystMa — Tus credenciales de acceso",
+        asunto="Bienvenido a SystMa — Tus credenciales de acceso",
         template="emails/bienvenida_personal.html",
         contexto={
             'usuario': user,
@@ -177,7 +177,7 @@ def notificar_registro_cliente(user, password_temporal):
     if not user.email:
         return
     _enviar(
-        asunto="👋 Bienvenido a SystMa — Tus credenciales de acceso",
+        asunto="Bienvenido a SystMa — Tus credenciales de acceso",
         template="emails/bienvenida_cliente.html",
         contexto={
             'usuario': user,

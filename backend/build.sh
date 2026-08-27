@@ -12,4 +12,4 @@ python manage.py collectstatic --no-input
 echo ">>> Aplicando migraciones de base de datos..."
 python manage.py migrate --no-input
 
-echo ">>> Build completado exitosamente ✅"
+echo ">>> Build completado exitosamente."

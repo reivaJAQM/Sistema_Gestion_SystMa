@@ -36,7 +36,7 @@
       <div style="text-align: center; margin-bottom: 14px;">
         <img src="cid:logo_empresa" alt="SystMa" style="height: 55px; max-height: 55px; width: auto; max-width: 180px; display: inline-block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); border-radius: 8px;" />
       </div>
-      <h1>👋 Bienvenido a SystMa</h1>
+      <h1>Bienvenido a SystMa</h1>
       <p>Sistema de Gestión de Órdenes de Trabajo</p>
     </div>
     <div class="body">
@@ -48,15 +48,15 @@
       <div class="credentials-box">
         <h3>Tus credenciales de acceso</h3>
         <div class="cred-row">
-          <span class="cred-label">👤 Usuario</span>
+          <span class="cred-label">Usuario</span>
           <span class="cred-value">{{ usuario.username }}</span>
         </div>
         <div class="cred-row">
-          <span class="cred-label">🔑 Contraseña</span>
+          <span class="cred-label">Contraseña</span>
           <span class="cred-value">{{ password_temporal }}</span>
         </div>
         <div class="cred-row">
-          <span class="cred-label">🎭 Rol</span>
+          <span class="cred-label">Rol</span>
           <span class="cred-value {% if rol == 'Tecnico' %}rol-tecnico{% else %}rol-supervisor{% endif %}">
             {% if rol == 'Tecnico' %}Técnico{% else %}Supervisor{% endif %}
           </span>
@@ -64,7 +64,7 @@
       </div>
 
       <div class="warning">
-        ⚠️ <strong>Por seguridad</strong>, te recomendamos cambiar tu contraseña la primera vez que ingreses al sistema.
+        Por seguridad, te recomendamos cambiar tu contraseña la primera vez que ingreses al sistema.
       </div>
 
       <a href="{{ frontend_url }}/login" class="btn">Ingresar al Sistema →</a>

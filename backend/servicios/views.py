@@ -20,11 +20,19 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 # Importación de modelos y serializadores
-from .models import Estado, OrdenTrabajo, Avance, FotoAvance, Profile
+from .models import (
+    Estado, OrdenTrabajo, Avance, FotoAvance, Profile,
+    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario
+)
 from .serializers import (
     EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer,
-    AvanceSerializer, RegistroUsuarioSerializer
+    AvanceSerializer, RegistroUsuarioSerializer,
+    ItemInventarioSerializer, HerramientaAsignadaOrdenSerializer,
+    MaterialUsadoOrdenSerializer, MovimientoInventarioSerializer
 )
+from rest_framework.decorators import action
+from django.utils import timezone
+from decimal import Decimal
 from .emails import (
     notificar_tecnico_asignado, notificar_supervisor_asignado,
     notificar_cambio_estado, enviar_email_recuperacion,
@@ -220,7 +228,7 @@ class AvanceViewSet(viewsets.ModelViewSet):
         # --- 1. BLOQUEO GLOBAL (ABSOLUTO) ---
         # Si está Finalizado, NADIE puede escribir. Ni el Admin.
         if orden.estado and orden.estado.nombre == 'Finalizado':
-            raise PermissionDenied("⛔ La orden está FINALIZADA y cerrada. No se pueden agregar más registros.")
+            raise PermissionDenied("La orden está FINALIZADA y cerrada. No se pueden agregar más registros.")
 
         # --- 2. BLOQUEO PARA TÉCNICOS ---
         # Si NO está finalizada, revisamos si es Técnico para aplicarle sus restricciones específicas
@@ -326,6 +334,8 @@ def generar_reporte_pdf(request, pk):
     context = {
         'orden': orden, 
         'avances': avances_con_fotos,
+        'herramientas': orden.herramientas_asignadas.all(),
+        'materiales': orden.materiales_usados.all(),
         'logo_path': logo_path,
         'foto_referencia_path': foto_referencia_path
     }
@@ -562,3 +572,240 @@ class PerfilUsuarioView(APIView):
             return Response({'detail': 'Foto de perfil eliminada.'})
         except Profile.DoesNotExist:
             return Response({'detail': 'No hay foto de perfil.'}, status=404)
+
+
+# ====================================================================
+# --- VIEWSETS DEL MÓDULO DE GESTIÓN DE INVENTARIO Y HERRAMIENTAS ---
+# ====================================================================
+
+class ItemInventarioViewSet(viewsets.ModelViewSet):
+    queryset = ItemInventario.objects.all()
+    serializer_class = ItemInventarioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        tipo = self.request.query_params.get('tipo', None)
+        estado_h = self.request.query_params.get('estado_herramienta', None)
+        stock_bajo = self.request.query_params.get('stock_bajo', None)
+        buscar = self.request.query_params.get('buscar', None)
+
+        if tipo:
+            queryset = queryset.filter(tipo=tipo.upper())
+        if estado_h:
+            queryset = queryset.filter(estado_herramienta=estado_h.upper())
+        if stock_bajo == 'true':
+            queryset = queryset.filter(tipo='MATERIAL', stock_actual__lte=F('stock_minimo'))
+        if buscar:
+            queryset = queryset.filter(
+                Q(nombre__icontains=buscar) |
+                Q(codigo__icontains=buscar) |
+                Q(descripcion__icontains=buscar)
+            )
+        return queryset
+
+    @action(detail=True, methods=['post'], url_path='registrar-entrada')
+    def registrar_entrada(self, request, pk=None):
+        """Permite registrar compra o ingreso de stock a un ítem."""
+        item = self.get_object()
+        try:
+            cantidad = Decimal(str(request.data.get('cantidad', 0)))
+        except Exception:
+            return Response({'detail': 'Cantidad inválida.'}, status=400)
+
+        if cantidad <= 0:
+            return Response({'detail': 'La cantidad debe ser mayor a cero.'}, status=400)
+
+        motivo = request.data.get('motivo', 'Ingreso / Compra de stock')
+        stock_anterior = item.stock_actual
+        item.stock_actual += cantidad
+        item.save()
+
+        # Registrar movimiento en Kardex
+        movimiento = MovimientoInventario.objects.create(
+            item=item,
+            tipo_movimiento='ENTRADA',
+            cantidad=cantidad,
+            stock_anterior=stock_anterior,
+            stock_nuevo=item.stock_actual,
+            usuario=request.user,
+            motivo=motivo
+        )
+
+        return Response({
+            'detail': f'Se ingresaron {cantidad} {item.unidad_medida} correctamente.',
+            'item': ItemInventarioSerializer(item).data,
+            'movimiento': MovimientoInventarioSerializer(movimiento).data
+        })
+
+    @action(detail=True, methods=['post'], url_path='ajustar-stock')
+    def ajustar_stock(self, request, pk=None):
+        """Permite ajustar manualmente el stock tras una auditoría de almacén."""
+        item = self.get_object()
+        try:
+            nuevo_stock = Decimal(str(request.data.get('nuevo_stock', 0)))
+        except Exception:
+            return Response({'detail': 'Stock inválido.'}, status=400)
+
+        if nuevo_stock < 0:
+            return Response({'detail': 'El stock no puede ser negativo.'}, status=400)
+
+        motivo = request.data.get('motivo', 'Ajuste manual de inventario')
+        stock_anterior = item.stock_actual
+        diferencia = nuevo_stock - stock_anterior
+        item.stock_actual = nuevo_stock
+        item.save()
+
+        movimiento = MovimientoInventario.objects.create(
+            item=item,
+            tipo_movimiento='AJUSTE',
+            cantidad=diferencia,
+            stock_anterior=stock_anterior,
+            stock_nuevo=nuevo_stock,
+            usuario=request.user,
+            motivo=motivo
+        )
+
+        return Response({
+            'detail': 'Stock ajustado correctamente.',
+            'item': ItemInventarioSerializer(item).data,
+            'movimiento': MovimientoInventarioSerializer(movimiento).data
+        })
+
+
+class HerramientaAsignadaViewSet(viewsets.ModelViewSet):
+    queryset = HerramientaAsignadaOrden.objects.all()
+    serializer_class = HerramientaAsignadaOrdenSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        orden_id = self.request.query_params.get('orden', None)
+        if orden_id:
+            queryset = queryset.filter(orden_id=orden_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        asignacion = serializer.save()
+        herramienta = asignacion.herramienta
+        # Marcar la herramienta como en uso
+        herramienta.estado_herramienta = 'EN_USO'
+        herramienta.save()
+
+    def perform_destroy(self, instance):
+        herramienta = instance.herramienta
+        if not instance.devuelta and herramienta.estado_herramienta == 'EN_USO':
+            herramienta.estado_herramienta = 'DISPONIBLE'
+            herramienta.save()
+        instance.delete()
+
+    @action(detail=True, methods=['post'], url_path='marcar-devolucion')
+    def marcar_devolucion(self, request, pk=None):
+        asignacion = self.get_object()
+        if asignacion.devuelta:
+            return Response({'detail': 'Esta herramienta ya fue marcada como devuelta.'}, status=400)
+
+        observaciones = request.data.get('observaciones', '')
+        asignacion.devuelta = True
+        asignacion.fecha_devolucion = timezone.now()
+        if observaciones:
+            asignacion.observaciones = observaciones
+        asignacion.save()
+
+        # Restaurar estado de la herramienta
+        herramienta = asignacion.herramienta
+        herramienta.estado_herramienta = 'DISPONIBLE'
+        herramienta.save()
+
+        return Response({
+            'detail': f'Herramienta {herramienta.nombre} devuelta con éxito.',
+            'asignacion': HerramientaAsignadaOrdenSerializer(asignacion).data
+        })
+
+
+class MaterialUsadoViewSet(viewsets.ModelViewSet):
+    queryset = MaterialUsadoOrden.objects.all()
+    serializer_class = MaterialUsadoOrdenSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        orden_id = self.request.query_params.get('orden', None)
+        if orden_id:
+            queryset = queryset.filter(orden_id=orden_id)
+        return queryset
+
+    @action(detail=True, methods=['post'], url_path='registrar-consumo')
+    def registrar_consumo(self, request, pk=None):
+        """Registra la cantidad real consumida y descuenta del stock."""
+        uso = self.get_object()
+        try:
+            cantidad_real = Decimal(str(request.data.get('cantidad_real', uso.cantidad_real)))
+        except Exception:
+            return Response({'detail': 'Cantidad real inválida.'}, status=400)
+
+        if cantidad_real < 0:
+            return Response({'detail': 'La cantidad real no puede ser negativa.'}, status=400)
+
+        material = uso.material
+        
+        # Si ya se había descontado antes, calculamos la diferencia
+        if uso.descontado_de_stock:
+            diferencia = cantidad_real - uso.cantidad_real
+            stock_anterior = material.stock_actual
+            material.stock_actual -= diferencia
+            material.save()
+            if diferencia != 0:
+                MovimientoInventario.objects.create(
+                    item=material,
+                    tipo_movimiento='SALIDA_ORDEN' if diferencia > 0 else 'DEVOLUCION',
+                    cantidad=abs(diferencia),
+                    stock_anterior=stock_anterior,
+                    stock_nuevo=material.stock_actual,
+                    orden=uso.orden,
+                    usuario=request.user,
+                    motivo=f"Ajuste de consumo en Orden #{uso.orden.id}"
+                )
+        else:
+            stock_anterior = material.stock_actual
+            material.stock_actual -= cantidad_real
+            material.save()
+            uso.descontado_de_stock = True
+            MovimientoInventario.objects.create(
+                item=material,
+                tipo_movimiento='SALIDA_ORDEN',
+                cantidad=cantidad_real,
+                stock_anterior=stock_anterior,
+                stock_nuevo=material.stock_actual,
+                orden=uso.orden,
+                usuario=request.user,
+                motivo=f"Consumo en Orden #{uso.orden.id} - {uso.orden.titulo}"
+            )
+
+        uso.cantidad_real = cantidad_real
+        uso.save()
+
+        return Response({
+            'detail': 'Consumo de material registrado y stock actualizado.',
+            'uso': MaterialUsadoOrdenSerializer(uso).data,
+            'material': ItemInventarioSerializer(material).data
+        })
+
+
+class MovimientoInventarioViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = MovimientoInventario.objects.all().order_by('-fecha')
+    serializer_class = MovimientoInventarioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        item_id = self.request.query_params.get('item', None)
+        tipo = self.request.query_params.get('tipo', None)
+        orden_id = self.request.query_params.get('orden', None)
+        if item_id:
+            queryset = queryset.filter(item_id=item_id)
+        if tipo:
+            queryset = queryset.filter(tipo_movimiento=tipo.upper())
+        if orden_id:
+            queryset = queryset.filter(orden_id=orden_id)
+        return queryset

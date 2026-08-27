@@ -9,16 +9,16 @@ from django.contrib.auth.models import Group, Permission
 from servicios.models import Estado
 
 def crear_datos():
-    print("🔄 Iniciando configuración inicial...")
+    print("Iniciando configuración inicial...")
 
     # 1. CREAR GRUPOS
     grupos = ['Tecnico', 'Supervisor', 'Cliente']
     for nombre in grupos:
         g, created = Group.objects.get_or_create(name=nombre)
         if created:
-            print(f"✅ Grupo creado: {nombre}")
+            print(f"Grupo creado: {nombre}")
         else:
-            print(f"ℹ️ Grupo ya existía: {nombre}")
+            print(f"Grupo ya existía: {nombre}")
 
     # 2. CREAR ESTADOS
     estados = [
@@ -35,11 +35,11 @@ def crear_datos():
             defaults={'color': est['color'], 'orden': est['orden']}
         )
         if created:
-            print(f"✅ Estado creado: {est['nombre']}")
+            print(f"Estado creado: {est['nombre']}")
         else:
-            print(f"ℹ️ Estado ya existía: {est['nombre']}")
+            print(f"Estado ya existía: {est['nombre']}")
 
-    print("\n✨ ¡Configuración terminada con éxito! Ya puedes usar el sistema.")
+    print("\nConfiguración terminada con éxito. Ya puedes usar el sistema.")
 
 if __name__ == '__main__':
     crear_datos()

@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
-from .models import Estado, OrdenTrabajo, Avance, FotoAvance 
+from .models import (
+    Estado, OrdenTrabajo, Avance, FotoAvance,
+    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario
+) 
 
 import secrets
 
@@ -42,11 +45,65 @@ class EstadoSerializer(serializers.ModelSerializer):
         model = Estado
         fields = '__all__'
 
+
+# --- SERIALIZERS DE INVENTARIO Y HERRAMIENTAS ---
+
+class ItemInventarioSerializer(serializers.ModelSerializer):
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_herramienta_display = serializers.CharField(source='get_estado_herramienta_display', read_only=True)
+    stock_bajo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemInventario
+        fields = '__all__'
+
+    def get_stock_bajo(self, obj):
+        if obj.tipo == 'MATERIAL':
+            return obj.stock_actual <= obj.stock_minimo
+        return False
+
+
+class HerramientaAsignadaOrdenSerializer(serializers.ModelSerializer):
+    herramienta_data = ItemInventarioSerializer(source='herramienta', read_only=True)
+    herramienta_nombre = serializers.ReadOnlyField(source='herramienta.nombre')
+    herramienta_codigo = serializers.ReadOnlyField(source='herramienta.codigo')
+
+    class Meta:
+        model = HerramientaAsignadaOrden
+        fields = '__all__'
+
+
+class MaterialUsadoOrdenSerializer(serializers.ModelSerializer):
+    material_data = ItemInventarioSerializer(source='material', read_only=True)
+    material_nombre = serializers.ReadOnlyField(source='material.nombre')
+    material_codigo = serializers.ReadOnlyField(source='material.codigo')
+    material_unidad = serializers.ReadOnlyField(source='material.unidad_medida')
+
+    class Meta:
+        model = MaterialUsadoOrden
+        fields = '__all__'
+
+
+class MovimientoInventarioSerializer(serializers.ModelSerializer):
+    item_nombre = serializers.ReadOnlyField(source='item.nombre')
+    item_codigo = serializers.ReadOnlyField(source='item.codigo')
+    item_unidad = serializers.ReadOnlyField(source='item.unidad_medida')
+    tipo_movimiento_display = serializers.CharField(source='get_tipo_movimiento_display', read_only=True)
+    usuario_nombre = serializers.ReadOnlyField(source='usuario.username')
+    orden_titulo = serializers.ReadOnlyField(source='orden.titulo')
+
+    class Meta:
+        model = MovimientoInventario
+        fields = '__all__'
+
+
 class OrdenTrabajoSerializer(serializers.ModelSerializer):
     estado_data = EstadoSerializer(source='estado', read_only=True)
     cliente_nombre = serializers.ReadOnlyField(source='cliente.username')
     tecnico_nombre = serializers.ReadOnlyField(source='tecnico.username')
     supervisor_nombre = serializers.ReadOnlyField(source='supervisor.username')
+    herramientas_asignadas = HerramientaAsignadaOrdenSerializer(many=True, read_only=True)
+    materiales_usados = MaterialUsadoOrdenSerializer(many=True, read_only=True)
     
     class Meta:
         model = OrdenTrabajo

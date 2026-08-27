@@ -387,7 +387,7 @@ export default function GestionUsuarios() {
 
             {/* ====== MODAL EDITAR ====== */}
             <Dialog open={editOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
-                <DialogTitle fontWeight="bold">✏️ Editar Personal</DialogTitle>
+                <DialogTitle fontWeight="bold">Editar Personal</DialogTitle>
                 <DialogContent dividers>
                     {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
                     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -431,7 +431,7 @@ export default function GestionUsuarios() {
                     {!deleteInfo.loading && deleteInfo.ordenes.length > 0 && (
                         <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ mt: 2 }}>
                             <Typography variant="body2" fontWeight="bold" gutterBottom>
-                                ⚠️ Tiene {deleteInfo.ordenes.length} orden{deleteInfo.ordenes.length !== 1 ? 'es' : ''} asignada{deleteInfo.ordenes.length !== 1 ? 's' : ''}.
+                                Tiene {deleteInfo.ordenes.length} orden{deleteInfo.ordenes.length !== 1 ? 'es' : ''} asignada{deleteInfo.ordenes.length !== 1 ? 's' : ''}.
                             </Typography>
                             <Typography variant="caption">
                                 Las órdenes no se eliminarán, pero perderán la asignación de este {deleteUser?.rol_visual?.toLowerCase()}.

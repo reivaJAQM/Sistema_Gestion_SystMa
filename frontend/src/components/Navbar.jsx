@@ -1,30 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  AppBar, Toolbar, Typography, Box, IconButton, 
+import {
+  AppBar, Toolbar, Typography, Box, IconButton,
   Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider,
-  Avatar, Menu, MenuItem 
+  Avatar, Menu, MenuItem
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { getMediaUrl } from '../utils/mediaUrl';
 
-// Iconos
-import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard'; 
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'; 
-import AddCircleIcon from '@mui/icons-material/AddCircle'; 
-import LogoutIcon from '@mui/icons-material/Logout';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import GroupAddIcon from '@mui/icons-material/GroupAdd';
-import PersonIcon from '@mui/icons-material/Person';
-import ListAltIcon from '@mui/icons-material/ListAlt';
-import BarChartIcon from '@mui/icons-material/BarChart';
+// Iconos Tabler
+import {
+  IconMenu2, IconLayoutDashboard, IconCalendar, IconCirclePlus,
+  IconLogout, IconUserCircle, IconChevronLeft, IconClipboardList,
+  IconUsers, IconUser, IconListCheck, IconChartBar, IconPackages
+} from '@tabler/icons-react';
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const [drawerOpen, setDrawerOpen] = useState(false); 
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [fotoPerfil, setFotoPerfil] = useState(() => {
     const stored = localStorage.getItem('user_foto');
@@ -38,80 +31,77 @@ export default function Navbar() {
   useEffect(() => {
     const fetchFoto = async () => {
       try {
-        const { data } = await api.get('perfil/');
-        if (data.foto_perfil) {
-          const url = getMediaUrl(data.foto_perfil);
+        const res = await api.get('usuarios/mi_perfil/');
+        if (res.data.foto) {
+          const url = getMediaUrl(res.data.foto);
           setFotoPerfil(url);
-          localStorage.setItem('user_foto', data.foto_perfil);
+          localStorage.setItem('user_foto', res.data.foto);
         }
       } catch (err) {
-        console.error('Error al cargar foto de perfil', err);
+        console.error('Error cargando foto de perfil:', err);
       }
     };
-    if (usuario) fetchFoto();
-  }, [usuario]);
-
-  useEffect(() => {
-    const handler = () => {
-      api.get('perfil/').then(({ data }) => {
-        if (data.foto_perfil) {
-          const url = getMediaUrl(data.foto_perfil);
-          setFotoPerfil(url);
-          localStorage.setItem('user_foto', data.foto_perfil);
-        } else {
-          setFotoPerfil(null);
-          localStorage.removeItem('user_foto');
-        }
-      });
-    };
-    window.addEventListener('fotoPerfilChanged', handler);
-    return () => window.removeEventListener('fotoPerfilChanged', handler);
+    if (localStorage.getItem('access_token')) {
+      fetchFoto();
+    }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
-
-  const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
-  const handleMenuClose = () => setAnchorEl(null);
-
   const toggleDrawer = (open) => (event) => {
-    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) return;
+    if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
+      return;
+    }
     setDrawerOpen(open);
   };
 
-  const list = () => (
-    <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)} onKeyDown={toggleDrawer(false)}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" color="primary">Menú</Typography>
-        <IconButton onClick={toggleDrawer(false)}><ChevronLeftIcon /></IconButton>
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleMiPerfil = () => {
+    handleMenuClose();
+    navigate('/perfil');
+  };
+
+  const handleLogout = () => {
+    handleMenuClose();
+    localStorage.clear();
+    window.location.href = '/login';
+  };
+
+  const menuList = () => (
+    <Box sx={{ width: 280 }} role="presentation" onClick={toggleDrawer(false)} onKeyDown={toggleDrawer(false)}>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#f8fafc' }}>
+        <Typography variant="subtitle1" fontWeight="bold" color="#1e293b">Menú de Navegación</Typography>
+        <IconButton size="small"><IconChevronLeft size={20} /></IconButton>
       </Box>
       <Divider />
-      
       <List>
         {rol === 'Cliente' && (
           <ListItem disablePadding>
-            <ListItemButton component={Link} to="/mis-solicitudes">
-              <ListItemIcon><DashboardIcon color="primary"/></ListItemIcon>
-              <ListItemText primary="Mis Solicitudes" />
+            <ListItemButton component={Link} to="/cliente">
+              <ListItemIcon><IconLayoutDashboard size={22} color="#2563eb" stroke={1.75} /></ListItemIcon>
+              <ListItemText primary="Mi Portal" />
             </ListItemButton>
           </ListItem>
         )}
 
         {rol !== 'Tecnico' && rol !== 'Cliente' && (
-            <ListItem disablePadding>
+          <ListItem disablePadding>
             <ListItemButton component={Link} to="/dashboard">
-                <ListItemIcon><DashboardIcon color="primary"/></ListItemIcon>
-                <ListItemText primary="Panel de Administración" />
+              <ListItemIcon><IconLayoutDashboard size={22} color="#2563eb" stroke={1.75} /></ListItemIcon>
+              <ListItemText primary="Panel de Administración" />
             </ListItemButton>
-            </ListItem>
+          </ListItem>
         )}
 
         {rol !== 'Cliente' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/calendario">
-              <ListItemIcon><CalendarMonthIcon color="info"/></ListItemIcon>
+              <ListItemIcon><IconCalendar size={22} color="#0284c7" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Agenda Calendario" />
             </ListItemButton>
           </ListItem>
@@ -120,7 +110,7 @@ export default function Navbar() {
         {rol === 'Tecnico' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/mis-trabajos">
-              <ListItemIcon><AssignmentIcon color="warning" /></ListItemIcon>
+              <ListItemIcon><IconClipboardList size={22} color="#d97706" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Mis Trabajos" />
             </ListItemButton>
           </ListItem>
@@ -129,7 +119,7 @@ export default function Navbar() {
         {rol !== 'Tecnico' && rol !== 'Cliente' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/todos-los-trabajos">
-              <ListItemIcon><ListAltIcon color="action" /></ListItemIcon>
+              <ListItemIcon><IconListCheck size={22} color="#475569" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Lista de Trabajos" />
             </ListItemButton>
           </ListItem>
@@ -138,7 +128,7 @@ export default function Navbar() {
         {rol !== 'Tecnico' && rol !== 'Cliente' && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/nueva-orden">
-              <ListItemIcon><AddCircleIcon color="secondary"/></ListItemIcon>
+              <ListItemIcon><IconCirclePlus size={22} color="#9333ea" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Nueva Orden" />
             </ListItemButton>
           </ListItem>
@@ -146,8 +136,17 @@ export default function Navbar() {
 
         {(rol === 'Administrador' || rol === 'Supervisor') && (
           <ListItem disablePadding>
+            <ListItemButton component={Link} to="/inventario">
+              <ListItemIcon><IconPackages size={22} color="#d97706" stroke={1.75} /></ListItemIcon>
+              <ListItemText primary="Inventario" />
+            </ListItemButton>
+          </ListItem>
+        )}
+
+        {(rol === 'Administrador' || rol === 'Supervisor') && (
+          <ListItem disablePadding>
             <ListItemButton component={Link} to="/rendimiento">
-              <ListItemIcon><BarChartIcon color="primary"/></ListItemIcon>
+              <ListItemIcon><IconChartBar size={22} color="#2563eb" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Rendimiento Personal" />
             </ListItemButton>
           </ListItem>
@@ -156,7 +155,7 @@ export default function Navbar() {
         {(rol === 'Administrador' || rol === 'Supervisor') && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/usuarios">
-              <ListItemIcon><GroupAddIcon color="success"/></ListItemIcon>
+              <ListItemIcon><IconUsers size={22} color="#16a34a" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Personal" />
             </ListItemButton>
           </ListItem>
@@ -165,7 +164,7 @@ export default function Navbar() {
         {(rol === 'Administrador' || rol === 'Supervisor') && (
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/clientes">
-              <ListItemIcon><PersonIcon color="info"/></ListItemIcon>
+              <ListItemIcon><IconUser size={22} color="#0284c7" stroke={1.75} /></ListItemIcon>
               <ListItemText primary="Clientes" />
             </ListItemButton>
           </ListItem>
@@ -179,53 +178,54 @@ export default function Navbar() {
       <AppBar position="sticky" sx={{ top: 0, zIndex: 1100 }}>
         <Toolbar>
           <IconButton size="large" edge="start" color="inherit" aria-label="menu" sx={{ mr: 2 }} onClick={toggleDrawer(true)}>
-            <MenuIcon />
+            <IconMenu2 size={24} />
           </IconButton>
-          <Box 
-            sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', cursor: 'pointer' }} 
+          <Box
+            sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', cursor: 'pointer' }}
             onClick={() => navigate('/dashboard')}
           >
             <img src="/logo.png" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
             <Typography variant="h6" component="div">Gestión SystMa</Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            {usuario && (
-                <>
-                  <IconButton onClick={handleMenuClick} size="small">
-                    <Avatar 
-                      src={fotoPerfil || undefined} 
-                      sx={{ 
-                        bgcolor: 'rgba(255, 255, 255, 0.2)', 
-                        color: '#fff', 
-                        fontWeight: 'bold', 
-                        border: '2px solid rgba(255,255,255,0.3)' 
-                      }}
-                    >
-                        {usuario.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </IconButton>
-                  <Menu anchorEl={anchorEl} open={openMenu} onClose={handleMenuClose} onClick={handleMenuClose}>
-                    <Box sx={{ px: 2, py: 1.5, textAlign: 'center', bgcolor: '#f5f5f5', mb: 1 }}>
-                        <Typography variant="subtitle1" fontWeight="bold">{usuario}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'uppercase', fontWeight: 'bold' }}>{rol}</Typography>
-                    </Box>
-                    <Divider />
-                    <MenuItem component={Link} to="/perfil" onClick={handleMenuClose}>
-                      <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-                      Mi Perfil
-                    </MenuItem>
-                    <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
-                      <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
-                      Cerrar Sesión
-                    </MenuItem>
-                  </Menu>
-                </>
-            )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {usuario} ({rol})
+            </Typography>
+            <IconButton onClick={handleMenuOpen} size="small" sx={{ ml: 1 }}>
+              <Avatar
+                src={fotoPerfil || undefined}
+                alt={usuario || 'Usuario'}
+                sx={{ width: 38, height: 38, border: '2px solid #fff' }}
+              >
+                {!fotoPerfil && (usuario ? usuario.charAt(0).toUpperCase() : <IconUserCircle size={24} />)}
+              </Avatar>
+            </IconButton>
           </Box>
+
+          <Menu
+            anchorEl={anchorEl}
+            open={openMenu}
+            onClose={handleMenuClose}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            PaperProps={{ sx: { mt: 1, minWidth: 160 } }}
+          >
+            <MenuItem onClick={handleMiPerfil}>
+              <ListItemIcon><IconUserCircle size={20} /></ListItemIcon>
+              Mi Perfil
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+              <ListItemIcon><IconLogout size={20} color="#dc2626" /></ListItemIcon>
+              Cerrar Sesión
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
+
       <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-        {list()}
+        {menuList()}
       </Drawer>
     </>
   );

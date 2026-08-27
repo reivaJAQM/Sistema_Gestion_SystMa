@@ -10,7 +10,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import EngineeringIcon from '@mui/icons-material/Engineering';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -92,18 +91,20 @@ export default function ListaTrabajos() {
     // CAMBIO 1: maxWidth={false} permite que ocupe todo el ancho disponible
     <Container maxWidth={false} sx={{ mt: 2, mb: 4, px: { xs: 2, md: 4 } }}>
       
-      {/* Encabezado y Navegación */}
-      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/dashboard')} color="inherit">
-          Volver
-        </Button>
-        <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
-            Gestión de Órdenes de Trabajo
-        </Typography>
+      {/* Encabezado */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h4" fontWeight="900" sx={{ color: '#1e293b', letterSpacing: '-0.02em' }}>
+            Órdenes de Trabajo
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#64748b', mt: 0.5 }}>
+            Consulta, filtra y gestiona todas las órdenes de trabajo del sistema
+          </Typography>
+        </Box>
         <Tooltip title="Recargar datos">
-            <IconButton onClick={fetchDatos}>
-                <RefreshIcon />
-            </IconButton>
+          <IconButton onClick={fetchDatos} sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', p: 1.2, borderRadius: '12px' }}>
+            <RefreshIcon sx={{ color: '#2563eb' }} />
+          </IconButton>
         </Tooltip>
       </Box>
 

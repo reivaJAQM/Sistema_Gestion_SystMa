@@ -99,7 +99,7 @@ export default function MisTrabajos() {
                       
                       {orden.fecha_inicio && (
                         <Typography variant="caption" display="block" sx={{ mt: 1, color: '#1976d2', fontWeight: 500 }}>
-                            📅 Programado: {new Date(orden.fecha_inicio).toLocaleString()}
+                            Programado: {new Date(orden.fecha_inicio).toLocaleString()}
                         </Typography>
                       )}
                     </Box>
