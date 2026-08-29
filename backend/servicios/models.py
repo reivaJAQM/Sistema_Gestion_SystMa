@@ -7,6 +7,8 @@ from django.dispatch import receiver
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     foto_perfil = models.ImageField(upload_to='perfiles/', null=True, blank=True)
+    cedula = models.CharField(max_length=20, blank=True, default='', verbose_name="Cédula / Documento de Identidad")
+    telefono = models.CharField(max_length=30, blank=True, default='', verbose_name="Teléfono de Contacto")
     debe_cambiar_password = models.BooleanField(default=False, verbose_name="Debe Cambiar Contraseña")
 
     def __str__(self):

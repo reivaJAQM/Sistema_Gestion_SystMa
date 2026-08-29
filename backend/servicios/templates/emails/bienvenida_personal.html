@@ -3,74 +3,109 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 24px; }
-    .card { background: white; border-radius: 12px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-    .header { background: linear-gradient(135deg, #1976d2, #1565c0); padding: 32px; text-align: center; }
-    .header h1 { color: white; margin: 0 0 6px; font-size: 22px; font-weight: 700; }
-    .header p  { color: rgba(255,255,255,0.85); margin: 0; font-size: 14px; }
-    .body { padding: 32px; }
-    .greeting { font-size: 17px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
-    .subtitle  { font-size: 14px; color: #555; margin-bottom: 24px; }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 24px; color: #333333; }
+    .card { background: white; border-radius: 12px; max-width: 540px; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+    .header { background: linear-gradient(135deg, #1976d2, #1565c0); padding: 32px 24px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0 0 6px; font-size: 22px; font-weight: 700; }
+    .header p  { color: rgba(255,255,255,0.9); margin: 0; font-size: 14px; }
+    .body { padding: 32px 28px; }
+    .greeting { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+    .subtitle  { font-size: 14px; color: #475569; margin-bottom: 20px; line-height: 1.5; }
+    
     .credentials-box {
-      background: #f0f7ff;
-      border: 1px solid #c2d9f5;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
       border-radius: 10px;
-      padding: 20px 24px;
+      padding: 20px 22px;
+      margin: 22px 0;
+    }
+    .credentials-box h3 { margin: 0 0 16px; font-size: 12px; color: #1976d2; text-transform: uppercase; letter-spacing: 0.75px; font-weight: 700; }
+    .cred-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0; }
+    .cred-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .cred-label { font-size: 13px; color: #64748b; font-weight: 600; }
+    .cred-value { font-size: 14px; font-weight: 700; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 12px; font-family: 'Courier New', Courier, monospace; }
+    
+    .rol-badge { display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 700; font-family: inherit; }
+    .rol-tecnico    { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .rol-supervisor { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+
+    .role-info {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 16px 20px;
       margin: 20px 0;
     }
-    .credentials-box h3 { margin: 0 0 14px; font-size: 13px; color: #1565c0; text-transform: uppercase; letter-spacing: 0.5px; }
-    .cred-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .cred-label { font-size: 13px; color: #666; min-width: 90px; }
-    .cred-value { font-size: 14px; font-weight: 700; color: #1a1a1a; background: white; border: 1px solid #dde8f7; border-radius: 6px; padding: 5px 12px; font-family: monospace; }
-    .rol-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-    .rol-tecnico    { background: #fff3e0; color: #e65100; }
-    .rol-supervisor { background: #f3e5f5; color: #6a1b9a; }
-    .warning { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 12px 16px; margin: 20px 0; font-size: 13px; color: #795548; }
-    .btn { display: block; background: #1976d2; color: white !important; text-decoration: none; padding: 13px 28px; border-radius: 8px; font-weight: 700; font-size: 14px; margin: 24px 0 0; text-align: center; }
-    .footer { background: #f8f9fa; border-top: 1px solid #e9ecef; padding: 16px 32px; font-size: 12px; color: #888; text-align: center; }
+    .role-info h4 { margin: 0 0 8px; font-size: 13px; color: #334155; font-weight: 700; text-transform: uppercase; }
+    .role-info p { margin: 0; font-size: 13px; color: #475569; line-height: 1.5; }
+
+    .mandatory-warning {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin: 22px 0;
+      font-size: 13px;
+      color: #92400e;
+      line-height: 1.5;
+    }
+    .mandatory-warning strong { color: #78350f; }
+
+    .btn { display: block; background: #1976d2; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 15px; margin: 26px 0 0; text-align: center; letter-spacing: 0.3px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="header">
       <div style="text-align: center; margin-bottom: 14px;">
-        <img src="cid:logo_empresa" alt="SystMa" style="height: 55px; max-height: 55px; width: auto; max-width: 180px; display: inline-block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); border-radius: 8px;" />
+        <img src="cid:logo_empresa" alt="SystMa" style="height: 52px; max-height: 52px; width: auto; max-width: 180px; display: inline-block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); border-radius: 8px;" />
       </div>
-      <h1>Bienvenido a SystMa</h1>
-      <p>Sistema de Gestión de Órdenes de Trabajo</p>
+      <h1>Bienvenido al Equipo SystMa</h1>
+      <p>Plataforma de Gestión de Operaciones y Servicios</p>
     </div>
+    
     <div class="body">
-      <p class="greeting">Hola, {{ usuario.first_name|default:usuario.username }}!</p>
+      <p class="greeting">Estimado(a) {{ usuario.first_name }} {{ usuario.last_name }},</p>
       <p class="subtitle">
-        Tu cuenta en el sistema SystMa ha sido creada. A continuación encontrarás tus credenciales de acceso:
+        Has sido dado de alta como parte del equipo operativo de <strong>SystMa</strong>. A continuación se detallan tus credenciales oficiales de acceso:
       </p>
 
       <div class="credentials-box">
-        <h3>Tus credenciales de acceso</h3>
+        <h3>Credenciales Oficiales de Acceso</h3>
         <div class="cred-row">
-          <span class="cred-label">Usuario</span>
-          <span class="cred-value">{{ usuario.username }}</span>
+          <span class="cred-label">Usuario de Ingreso</span>
+          <span class="cred-value">{{ cedula }}</span>
         </div>
         <div class="cred-row">
-          <span class="cred-label">Contraseña</span>
+          <span class="cred-label">Contraseña Temporal</span>
           <span class="cred-value">{{ password_temporal }}</span>
         </div>
         <div class="cred-row">
-          <span class="cred-label">Rol</span>
-          <span class="cred-value {% if rol == 'Tecnico' %}rol-tecnico{% else %}rol-supervisor{% endif %}">
-            {% if rol == 'Tecnico' %}Técnico{% else %}Supervisor{% endif %}
+          <span class="cred-label">Rol Asignado</span>
+          <span class="rol-badge {% if rol == 'Tecnico' %}rol-tecnico{% else %}rol-supervisor{% endif %}">
+            {% if rol == 'Tecnico' %}Técnico de Campo{% else %}Supervisor de Operaciones{% endif %}
           </span>
         </div>
+        {% if telefono %}
+        <div class="cred-row">
+          <span class="cred-label">Teléfono Registrado</span>
+          <span class="cred-value" style="font-family: inherit; font-size: 13px;">{{ telefono }}</span>
+        </div>
+        {% endif %}
       </div>
 
-      <div class="warning">
-        Por seguridad, te recomendamos cambiar tu contraseña la primera vez que ingreses al sistema.
+      <div class="mandatory-warning">
+        <strong>Aviso de Seguridad Obligatorio:</strong><br>
+        Tu usuario y clave temporal corresponden a tu <strong>Número de Cédula</strong>. Por motivos de seguridad y control de acceso, <strong>el sistema te solicitará cambiar tu contraseña obligatoriamente</strong> al iniciar sesión por primera vez.
       </div>
 
-      <a href="{{ frontend_url }}/login" class="btn">Ingresar al Sistema →</a>
+      <a href="{{ frontend_url }}/login" class="btn">Acceder al Sistema</a>
     </div>
+
     <div class="footer">
-      Este mensaje fue generado automáticamente por el Sistema SystMa. No respondas este correo.
+      Este es un mensaje automático generado por el Sistema de Gestión de Operaciones SystMa.<br>
+      Por favor no respondas a este correo electrónico.
     </div>
   </div>
 </body>

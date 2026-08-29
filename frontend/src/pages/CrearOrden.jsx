@@ -95,8 +95,9 @@ export default function CrearOrden() {
     const [showSuccessModal, setShowSuccessModal] = useState(false); // Modal Éxito
     const [loading, setLoading] = useState(false); // Estado de carga
 
-    const [nuevoClienteNombre, setNuevoClienteNombre] = useState('');
-    const [nuevoClienteEmail, setNuevoClienteEmail] = useState('');
+    const [nuevoClienteData, setNuevoClienteData] = useState({ first_name: '', last_name: '', cedula: '', telefono: '', email: '' });
+    const [nuevoClienteError, setNuevoClienteError] = useState('');
+    const [nuevoClienteLoading, setNuevoClienteLoading] = useState(false);
 
     // Generar Horarios
     const horariosDisponibles = [];
@@ -277,22 +278,38 @@ export default function CrearOrden() {
     };
 
     const handleCrearCliente = async () => {
-        if (!nuevoClienteNombre) return alert("Escribe un nombre");
+        if (!nuevoClienteData.first_name.trim() || !nuevoClienteData.last_name.trim()) {
+            setNuevoClienteError("El nombre y apellido son requeridos.");
+            return;
+        }
+        if (!nuevoClienteData.cedula.trim()) {
+            setNuevoClienteError("El número de cédula es obligatorio.");
+            return;
+        }
+        if (!nuevoClienteData.email.trim()) {
+            setNuevoClienteError("El correo electrónico es obligatorio.");
+            return;
+        }
+
+        setNuevoClienteLoading(true);
+        setNuevoClienteError('');
         try {
-            const payload = {
-                username: nuevoClienteNombre.replace(/\s+/g, '_').toLowerCase() + Math.floor(Math.random() * 1000),
-                first_name: nuevoClienteNombre,
-                email: nuevoClienteEmail
-            };
-            const response = await api.post('clientes/', payload);
+            const response = await api.post('clientes/', nuevoClienteData);
             const resClientes = await api.get('clientes/');
             setListaClientes(resClientes.data);
             setClienteId(response.data.id);
             setOpenModal(false);
-            setNuevoClienteNombre('');
-            setNuevoClienteEmail('');
+            setNuevoClienteData({ first_name: '', last_name: '', cedula: '', telefono: '', email: '' });
         } catch (error) {
-            console.error(error);
+            const detail = error.response?.data;
+            if (typeof detail === 'object') {
+                const msgs = Object.entries(detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
+                setNuevoClienteError(msgs);
+            } else {
+                setNuevoClienteError("Error al registrar cliente.");
+            }
+        } finally {
+            setNuevoClienteLoading(false);
         }
     };
 
@@ -317,12 +334,16 @@ export default function CrearOrden() {
                         <Autocomplete
                             fullWidth
                             options={listaClientes}
-                            getOptionLabel={(option) => option.first_name ? `${option.first_name} (${option.username})` : option.username}
+                            getOptionLabel={(option) => {
+                                const nombre = `${option.first_name || ''} ${option.last_name || ''}`.trim();
+                                const doc = option.cedula || option.username;
+                                return nombre ? `${nombre} (C.I. ${doc})` : doc;
+                            }}
                             value={listaClientes.find(c => c.id === clienteId) || null}
                             onChange={(event, newValue) => setClienteId(newValue ? newValue.id : '')}
                             renderInput={(params) => <TextField {...params} label="Cliente" required inputProps={{ ...params.inputProps, autoComplete: 'off' }} />}
                         />
-                        <IconButton color="primary" onClick={() => setOpenModal(true)}>
+                        <IconButton color="primary" onClick={() => { setNuevoClienteError(''); setOpenModal(true); }}>
                             <IconCirclePlus size={32} stroke={1.75} />
                         </IconButton>
                     </Box>
@@ -332,7 +353,11 @@ export default function CrearOrden() {
                         <Autocomplete
                             sx={{ flex: 1 }}
                             options={listaTecnicos}
-                            getOptionLabel={(option) => option.first_name ? `${option.first_name} (${option.username})` : option.username}
+                            getOptionLabel={(option) => {
+                                const nombre = `${option.first_name || ''} ${option.last_name || ''}`.trim();
+                                const doc = option.cedula || option.username;
+                                return nombre ? `${nombre} (C.I. ${doc})` : doc;
+                            }}
                             value={listaTecnicos.find(t => t.id === tecnicoId) || null}
                             onChange={(event, newValue) => setTecnicoId(newValue ? newValue.id : null)}
                             renderInput={(params) => <TextField {...params} label="Técnico Responsable" required inputProps={{ ...params.inputProps, autoComplete: 'off' }} />}
@@ -341,7 +366,11 @@ export default function CrearOrden() {
                             <Autocomplete
                                 sx={{ flex: 1 }}
                                 options={listaSupervisores}
-                                getOptionLabel={(option) => option.first_name ? `${option.first_name} (${option.username})` : option.username}
+                                getOptionLabel={(option) => {
+                                    const nombre = `${option.first_name || ''} ${option.last_name || ''}`.trim();
+                                    const doc = option.cedula || option.username;
+                                    return nombre ? `${nombre} (C.I. ${doc})` : doc;
+                                }}
                                 value={listaSupervisores.find(s => s.id === supervisorId) || null}
                                 onChange={(event, newValue) => setSupervisorId(newValue ? newValue.id : null)}
                                 renderInput={(params) => <TextField {...params} label="Asignar Supervisor" inputProps={{ ...params.inputProps, autoComplete: 'off' }} />}
@@ -787,23 +816,53 @@ export default function CrearOrden() {
             </Dialog>
 
             {/* MODAL CLIENTE */}
-            <Dialog open={openModal} onClose={() => setOpenModal(false)}>
-                <DialogTitle>Nuevo Cliente</DialogTitle>
+            <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle sx={{ fontWeight: 'bold' }}>Nuevo Cliente</DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1, minWidth: 300 }}>
+                    {nuevoClienteError && (
+                        <Alert severity="error" sx={{ mb: 2, mt: 1, borderRadius: 2 }}>
+                            {nuevoClienteError}
+                        </Alert>
+                    )}
+                    <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
-                            label="Nombre Completo" fullWidth autoFocus
-                            value={nuevoClienteNombre} onChange={(e) => setNuevoClienteNombre(e.target.value)}
+                            label="Nombre(s)" fullWidth autoFocus required
+                            value={nuevoClienteData.first_name} 
+                            onChange={(e) => setNuevoClienteData({ ...nuevoClienteData, first_name: e.target.value })}
                         />
                         <TextField
-                            label="Correo (Opcional)" fullWidth
-                            value={nuevoClienteEmail} onChange={(e) => setNuevoClienteEmail(e.target.value)}
+                            label="Apellido(s)" fullWidth required
+                            value={nuevoClienteData.last_name} 
+                            onChange={(e) => setNuevoClienteData({ ...nuevoClienteData, last_name: e.target.value })}
+                        />
+                        <TextField
+                            label="Cédula / Identificación" fullWidth required
+                            value={nuevoClienteData.cedula} 
+                            onChange={(e) => setNuevoClienteData({ ...nuevoClienteData, cedula: e.target.value })}
+                            helperText="Será su usuario y contraseña provisional"
+                        />
+                        <TextField
+                            label="Teléfono de Contacto" fullWidth
+                            value={nuevoClienteData.telefono} 
+                            onChange={(e) => setNuevoClienteData({ ...nuevoClienteData, telefono: e.target.value })}
+                        />
+                        <TextField
+                            label="Correo Electrónico" fullWidth required type="email"
+                            value={nuevoClienteData.email} 
+                            onChange={(e) => setNuevoClienteData({ ...nuevoClienteData, email: e.target.value })}
                         />
                     </Stack>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenModal(false)}>Cancelar</Button>
-                    <Button variant="contained" onClick={handleCrearCliente}>Guardar Cliente</Button>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setOpenModal(false)} disabled={nuevoClienteLoading}>Cancelar</Button>
+                    <Button 
+                        variant="contained" 
+                        onClick={handleCrearCliente}
+                        disabled={nuevoClienteLoading}
+                        sx={{ bgcolor: '#0288d1', '&:hover': { bgcolor: '#01579b' } }}
+                    >
+                        {nuevoClienteLoading ? <CircularProgress size={20} color="inherit" /> : 'Guardar Cliente'}
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Container>

@@ -6,66 +6,148 @@ import {
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     Snackbar, Tooltip, InputAdornment
 } from '@mui/material';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import GroupIcon from '@mui/icons-material/Group';
-import PersonIcon from '@mui/icons-material/Person';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import LockIcon from '@mui/icons-material/Lock';
-import EmailIcon from '@mui/icons-material/Email';
+import {
+    IconUsers,
+    IconUserPlus,
+    IconUser,
+    IconId,
+    IconPhone,
+    IconMail,
+    IconEdit,
+    IconTrash,
+    IconSearch,
+    IconRefresh,
+    IconAlertTriangle,
+    IconLock,
+    IconInfoCircle,
+    IconCheck
+} from '@tabler/icons-react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 // ---------- TARJETA DE CLIENTE ----------
 function ClienteCard({ cliente, onEdit, onDelete }) {
     const initials = `${cliente.first_name?.[0] ?? ''}${cliente.last_name?.[0] ?? ''}`.toUpperCase()
+        || cliente.cedula?.[0]
         || cliente.username?.[0]?.toUpperCase();
+
+    const cedulaMostrada = cliente.cedula || cliente.username;
 
     return (
         <Card
             variant="outlined"
             sx={{
-                borderRadius: 2,
-                transition: 'box-shadow 0.2s, border-color 0.2s',
-                '&:hover': { boxShadow: 4, borderColor: '#0288d1' },
+                borderRadius: 3,
+                transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.15s',
+                borderColor: '#e2e8f0',
+                '&:hover': { 
+                    boxShadow: '0 8px 24px rgba(2, 136, 209, 0.12)', 
+                    borderColor: '#0288d1',
+                    transform: 'translateY(-2px)'
+                },
             }}
         >
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: '14px !important' }}>
-                <Avatar sx={{ width: 50, height: 50, bgcolor: '#0288d1', fontWeight: 700 }}>
-                    {initials || <PersonIcon />}
+            <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                <Avatar 
+                    sx={{ 
+                        width: 52, 
+                        height: 52, 
+                        bgcolor: '#0288d1', 
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        boxShadow: '0 2px 8px rgba(2, 136, 209, 0.3)'
+                    }}
+                >
+                    {initials || <IconUser size={24} />}
                 </Avatar>
+                
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                    <Typography variant="subtitle1" fontWeight="700" color="#1e293b" noWrap>
                         {cliente.first_name} {cliente.last_name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                        @{cliente.username}
-                    </Typography>
-                    {cliente.email && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
-                            <EmailIcon sx={{ fontSize: 13, color: 'primary.main' }} />
+
+                    {/* CÉDULA / USUARIO */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.4 }}>
+                        <IconId size={15} color="#0288d1" />
+                        <Typography variant="body2" fontWeight="600" color="text.secondary" noWrap>
+                            C.I. {cedulaMostrada}
+                        </Typography>
+                    </Box>
+
+                    {/* TELÉFONO */}
+                    {cliente.telefono && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.4 }}>
+                            <IconPhone size={15} color="#16a34a" />
                             <Typography
-                                variant="caption" noWrap
-                                component="a" href={`mailto:${cliente.email}`}
-                                sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                                variant="caption"
+                                component="a"
+                                href={`tel:${cliente.telefono}`}
+                                sx={{
+                                    color: '#16a34a',
+                                    fontWeight: 600,
+                                    textDecoration: 'none',
+                                    '&:hover': { textDecoration: 'underline' }
+                                }}
+                                noWrap
+                            >
+                                {cliente.telefono}
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {/* CORREO */}
+                    {cliente.email && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.4 }}>
+                            <IconMail size={15} color="#64748b" />
+                            <Typography
+                                variant="caption"
+                                component="a"
+                                href={`mailto:${cliente.email}`}
+                                sx={{
+                                    color: '#475569',
+                                    textDecoration: 'none',
+                                    '&:hover': { textDecoration: 'underline', color: '#0288d1' }
+                                }}
+                                noWrap
                             >
                                 {cliente.email}
                             </Typography>
                         </Box>
                     )}
-                    <Chip label="Cliente" size="small" color="info" variant="outlined" sx={{ mt: 0.5 }} />
+
+                    <Box sx={{ mt: 1.2, display: 'flex', gap: 0.8, alignItems: 'center' }}>
+                        <Chip 
+                            label="Cliente" 
+                            size="small" 
+                            sx={{ 
+                                bgcolor: '#e0f2fe', 
+                                color: '#0369a1', 
+                                fontWeight: 700, 
+                                fontSize: '0.72rem',
+                                height: 22
+                            }} 
+                        />
+                    </Box>
                 </Box>
+
+                {/* ACCIONES */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    <Tooltip title="Editar">
-                        <IconButton size="small" color="primary" onClick={() => onEdit(cliente)}>
-                            <EditIcon fontSize="small" />
+                    <Tooltip title="Editar Cliente">
+                        <IconButton 
+                            size="small" 
+                            sx={{ color: '#0288d1', bgcolor: '#f0f9ff', '&:hover': { bgcolor: '#e0f2fe' } }} 
+                            onClick={() => onEdit(cliente)}
+                        >
+                            <IconEdit size={17} />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title="Eliminar">
-                        <IconButton size="small" color="error" onClick={() => onDelete(cliente)}>
-                            <DeleteIcon fontSize="small" />
+                    <Tooltip title="Eliminar Cliente">
+                        <IconButton 
+                            size="small" 
+                            sx={{ color: '#ef4444', bgcolor: '#fef2f2', '&:hover': { bgcolor: '#fee2e2' } }} 
+                            onClick={() => onDelete(cliente)}
+                        >
+                            <IconTrash size={17} />
                         </IconButton>
                     </Tooltip>
                 </Box>
@@ -93,7 +175,7 @@ export default function GestionClientes() {
     // Modal editar
     const [editOpen, setEditOpen] = useState(false);
     const [editCliente, setEditCliente] = useState(null);
-    const [editForm, setEditForm] = useState({ username: '', first_name: '', last_name: '', email: '', password: '' });
+    const [editForm, setEditForm] = useState({ cedula: '', first_name: '', last_name: '', telefono: '', email: '', password: '' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
 
@@ -104,11 +186,11 @@ export default function GestionClientes() {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     // Formulario creación
-    const [formData, setFormData] = useState({ username: '', first_name: '', last_name: '', email: '' });
+    const [formData, setFormData] = useState({ first_name: '', last_name: '', cedula: '', telefono: '', email: '' });
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState('');
 
-    // ---------- CARGA ----------
+    // ---------- CARGA DE DATOS ----------
     const cargarClientes = useCallback(async () => {
         setLoading(true);
         try {
@@ -122,32 +204,52 @@ export default function GestionClientes() {
     }, []);
 
     useEffect(() => { 
-      if (userRol === 'Cliente' || userRol === 'Tecnico') {
-        navigate('/mis-solicitudes');
-        return;
-      }
-      cargarClientes(); 
+        if (userRol === 'Cliente' || userRol === 'Tecnico') {
+            navigate('/mis-solicitudes');
+            return;
+        }
+        cargarClientes(); 
     }, [cargarClientes, navigate, userRol]);
 
     // Filtrado por búsqueda
     const clientesFiltrados = clientes.filter(c => {
-        const q = busqueda.toLowerCase();
+        const q = busqueda.toLowerCase().trim();
+        const cedula = (c.cedula || c.username || '').toLowerCase();
+        const nombre = (c.first_name || '').toLowerCase();
+        const apellido = (c.last_name || '').toLowerCase();
+        const nombreCompleto = `${nombre} ${apellido}`.toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const telefono = (c.telefono || '').toLowerCase();
+
         return (
-            c.username?.toLowerCase().includes(q) ||
-            c.first_name?.toLowerCase().includes(q) ||
-            c.last_name?.toLowerCase().includes(q) ||
-            c.email?.toLowerCase().includes(q)
+            cedula.includes(q) ||
+            nombre.includes(q) ||
+            apellido.includes(q) ||
+            nombreCompleto.includes(q) ||
+            email.includes(q) ||
+            telefono.includes(q)
         );
     });
 
     // ---------- EDICIÓN ----------
     const handleOpenEdit = (c) => {
         setEditCliente(c);
-        setEditForm({ username: c.username, first_name: c.first_name ?? '', last_name: c.last_name ?? '', email: c.email ?? '', password: '' });
+        setEditForm({
+            cedula: c.cedula || c.username || '',
+            first_name: c.first_name ?? '',
+            last_name: c.last_name ?? '',
+            telefono: c.telefono ?? '',
+            email: c.email ?? '',
+            password: ''
+        });
         setEditError('');
         setEditOpen(true);
     };
-    const handleCloseEdit = () => { setEditOpen(false); setEditCliente(null); };
+    
+    const handleCloseEdit = () => { 
+        setEditOpen(false); 
+        setEditCliente(null); 
+    };
 
     const handleEditSubmit = async () => {
         setEditLoading(true);
@@ -165,7 +267,7 @@ export default function GestionClientes() {
                 const msgs = Object.entries(detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ');
                 setEditError(msgs);
             } else {
-                setEditError('Error al actualizar el cliente.');
+                setEditError('Error al actualizar los datos del cliente.');
             }
         } finally {
             setEditLoading(false);
@@ -174,7 +276,10 @@ export default function GestionClientes() {
 
     // ---------- ELIMINACIÓN ----------
     const handleOpenDelete = async (c) => {
-        if (c.id === loggedUserId) { showSnack('No puedes eliminar tu propia cuenta.', 'warning'); return; }
+        if (c.id === loggedUserId) { 
+            showSnack('No puedes eliminar tu propia cuenta.', 'warning'); 
+            return; 
+        }
         setDeleteCliente(c);
         setDeleteInfo({ loading: true, ordenes: [] });
         setDeleteOpen(true);
@@ -185,7 +290,11 @@ export default function GestionClientes() {
             setDeleteInfo({ loading: false, ordenes: [] });
         }
     };
-    const handleCloseDelete = () => { setDeleteOpen(false); setDeleteCliente(null); };
+    
+    const handleCloseDelete = () => { 
+        setDeleteOpen(false); 
+        setDeleteCliente(null); 
+    };
 
     const handleConfirmDelete = async () => {
         setDeleteLoading(true);
@@ -193,7 +302,7 @@ export default function GestionClientes() {
             await api.delete(`clientes/${deleteCliente.id}/`);
             await cargarClientes();
             handleCloseDelete();
-            showSnack(`Cliente "${deleteCliente.username}" eliminado.`, 'info');
+            showSnack(`Cliente "${deleteCliente.first_name || deleteCliente.username}" eliminado con éxito.`, 'info');
         } catch {
             showSnack('Error al eliminar el cliente.', 'error');
         } finally {
@@ -204,18 +313,22 @@ export default function GestionClientes() {
     // ---------- CREACIÓN ----------
     const handleCreate = async (e) => {
         e.preventDefault();
-        if (!formData.email) {
-            setCreateError('El correo electrónico es obligatorio.');
+        if (!formData.cedula.trim()) {
+            setCreateError('La cédula o documento de identidad es obligatorio.');
+            return;
+        }
+        if (!formData.email.trim()) {
+            setCreateError('El correo electrónico es obligatorio para enviar las credenciales.');
             return;
         }
         setCreateLoading(true);
         setCreateError('');
         try {
             await api.post('clientes/', formData);
-            setFormData({ username: '', first_name: '', last_name: '', email: '' });
+            setFormData({ first_name: '', last_name: '', cedula: '', telefono: '', email: '' });
             await cargarClientes();
             setTabValue(0);
-            showSnack('Cliente registrado exitosamente. Se ha enviado la contraseña temporal por correo.');
+            showSnack('Cliente registrado exitosamente. Se han enviado las credenciales por correo electrónico.');
         } catch (err) {
             const detail = err.response?.data;
             if (typeof detail === 'object') {
@@ -230,62 +343,105 @@ export default function GestionClientes() {
     };
 
     return (
-        <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-            <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+            <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
 
                 {/* CABECERA */}
-                <Box sx={{ bgcolor: '#0288d1', p: 3, color: 'white' }}>
-                    <Typography variant="h5" fontWeight="bold">Gestión de Clientes</Typography>
-                    <Typography variant="body2">Registro y administración de clientes del sistema</Typography>
+                <Box sx={{ bgcolor: '#0288d1', p: 3.5, color: 'white' }}>
+                    <Typography variant="h5" fontWeight="800">Gestión de Clientes</Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
+                        Directorio, registro y administración de clientes del sistema
+                    </Typography>
                 </Box>
 
-                {/* TABS */}
-                <Tabs value={tabValue} onChange={(_, v) => { setTabValue(v); setBusqueda(''); }} variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <Tab icon={<GroupIcon />} label={`Directorio (${clientes.length})`} iconPosition="start" />
-                    <Tab icon={<PersonAddIcon />} label="Registrar Cliente" iconPosition="start" />
+                {/* PESTAÑAS */}
+                <Tabs 
+                    value={tabValue} 
+                    onChange={(_, v) => { setTabValue(v); setBusqueda(''); }} 
+                    variant="fullWidth" 
+                    sx={{ 
+                        borderBottom: 1, 
+                        borderColor: 'divider',
+                        '& .MuiTab-root': { fontWeight: 700, py: 2 }
+                    }}
+                >
+                    <Tab 
+                        icon={<IconUsers size={20} />} 
+                        label={`Directorio de Clientes (${clientes.length})`} 
+                        iconPosition="start" 
+                    />
+                    <Tab 
+                        icon={<IconUserPlus size={20} />} 
+                        label="Registrar Nuevo Cliente" 
+                        iconPosition="start" 
+                    />
                 </Tabs>
 
-                <Box sx={{ p: { xs: 2, sm: 4 } }}>
+                <Box sx={{ p: { xs: 2.5, sm: 4 } }}>
 
                     {/* ====== TAB 0 — DIRECTORIO ====== */}
                     {tabValue === 0 && (
                         <Box>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="h6" fontWeight="bold">Directorio de Clientes</Typography>
-                                <Tooltip title="Recargar">
-                                    <IconButton onClick={cargarClientes} color="primary"><RefreshIcon /></IconButton>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+                                <Box>
+                                    <Typography variant="h6" fontWeight="800" color="#1e293b">Directorio Activo</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Consulta, contacta o administra a los clientes registrados
+                                    </Typography>
+                                </Box>
+                                <Tooltip title="Actualizar listado">
+                                    <IconButton onClick={cargarClientes} color="primary" sx={{ bgcolor: '#f0f9ff' }}>
+                                        <IconRefresh size={20} />
+                                    </IconButton>
                                 </Tooltip>
                             </Box>
 
                             {/* Buscador */}
                             <TextField
-                                fullWidth variant="outlined" size="small"
-                                placeholder="Buscar por nombre, usuario o correo..."
-                                value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                                sx={{ mb: 3 }}
+                                fullWidth 
+                                variant="outlined" 
+                                size="small"
+                                placeholder="Buscar por cédula, nombre, teléfono o correo..."
+                                value={busqueda} 
+                                onChange={e => setBusqueda(e.target.value)}
+                                sx={{ mb: 3.5 }}
                                 InputProps={{
-                                    startAdornment: <InputAdornment position="start"><PersonIcon color="action" fontSize="small" /></InputAdornment>
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconSearch size={20} color="#64748b" />
+                                        </InputAdornment>
+                                    )
                                 }}
                             />
 
                             {loading ? (
-                                <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+                                <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
                             ) : clientesFiltrados.length === 0 ? (
-                                <Box textAlign="center" py={5}>
-                                    <PersonIcon sx={{ fontSize: 56, color: 'text.disabled', mb: 1 }} />
-                                    <Typography variant="body1" color="text.secondary">
-                                        {busqueda ? 'Sin resultados para tu búsqueda.' : 'No hay clientes registrados aún.'}
+                                <Box textAlign="center" py={6}>
+                                    <IconUsers size={56} stroke={1.5} color="#94a3b8" style={{ marginBottom: 12 }} />
+                                    <Typography variant="body1" color="text.secondary" fontWeight="600">
+                                        {busqueda ? 'No se encontraron clientes que coincidan con la búsqueda.' : 'No hay clientes registrados aún en el sistema.'}
                                     </Typography>
                                     {!busqueda && (
-                                        <Button variant="outlined" sx={{ mt: 2 }} onClick={() => setTabValue(1)}>
+                                        <Button 
+                                            variant="contained" 
+                                            startIcon={<IconUserPlus size={18} />}
+                                            sx={{ mt: 2.5, borderRadius: 2, bgcolor: '#0288d1' }} 
+                                            onClick={() => setTabValue(1)}
+                                        >
                                             Registrar primer cliente
                                         </Button>
                                     )}
                                 </Box>
                             ) : (
-                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 2 }}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 2.5 }}>
                                     {clientesFiltrados.map(c => (
-                                        <ClienteCard key={c.id} cliente={c} onEdit={handleOpenEdit} onDelete={handleOpenDelete} />
+                                        <ClienteCard 
+                                            key={c.id} 
+                                            cliente={c} 
+                                            onEdit={handleOpenEdit} 
+                                            onDelete={handleOpenDelete} 
+                                        />
                                     ))}
                                 </Box>
                             )}
@@ -294,26 +450,109 @@ export default function GestionClientes() {
 
                     {/* ====== TAB 1 — REGISTRAR ====== */}
                     {tabValue === 1 && (
-                        <Box component="form" onSubmit={handleCreate} sx={{ maxWidth: 700, mx: 'auto', mt: 2 }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom align="center" sx={{ mb: 3 }}>
-                                Datos del Nuevo Cliente
+                        <Box component="form" onSubmit={handleCreate} sx={{ maxWidth: 720, mx: 'auto', mt: 1 }}>
+                            <Typography variant="h6" fontWeight="800" align="center" sx={{ mb: 0.5, color: '#1e293b' }}>
+                                Formulario de Alta de Cliente
                             </Typography>
-                            {createError && <Alert severity="error" sx={{ mb: 2 }}>{createError}</Alert>}
+                            <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3.5 }}>
+                                Ingresa la información personal y de contacto del cliente
+                            </Typography>
+
+                            {createError && (
+                                <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                                    {createError}
+                                </Alert>
+                            )}
+
                             <Stack spacing={3}>
                                 <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                                    <TextField fullWidth label="Usuario (Login)" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} required />
-                                    <TextField fullWidth label="Nombre" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} required />
+                                    <TextField 
+                                        fullWidth 
+                                        label="Nombre(s)" 
+                                        value={formData.first_name} 
+                                        onChange={e => setFormData({ ...formData, first_name: e.target.value })} 
+                                        required 
+                                    />
+                                    <TextField 
+                                        fullWidth 
+                                        label="Apellido(s)" 
+                                        value={formData.last_name} 
+                                        onChange={e => setFormData({ ...formData, last_name: e.target.value })} 
+                                        required 
+                                    />
                                 </Box>
+
                                 <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                                    <TextField fullWidth label="Apellido" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} required />
-                                    <TextField fullWidth type="email" label="Correo Electrónico" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                                    <TextField 
+                                        fullWidth 
+                                        label="Cédula / Documento de Identidad" 
+                                        placeholder="Ej: 0912345678"
+                                        value={formData.cedula} 
+                                        onChange={e => setFormData({ ...formData, cedula: e.target.value })} 
+                                        required 
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start"><IconId size={18} color="#64748b" /></InputAdornment>
+                                        }}
+                                        helperText="Será su usuario y contraseña provisional de acceso al portal"
+                                    />
+                                    <TextField 
+                                        fullWidth 
+                                        label="Teléfono de Contacto" 
+                                        placeholder="Ej: +593 99 123 4567"
+                                        value={formData.telefono} 
+                                        onChange={e => setFormData({ ...formData, telefono: e.target.value })} 
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start"><IconPhone size={18} color="#64748b" /></InputAdornment>
+                                        }}
+                                    />
                                 </Box>
-                                <Alert severity="info" sx={{ borderRadius: 2 }}>
-                                    <strong>Contraseña Automática:</strong> Se generará una contraseña temporal segura y se enviará por correo electrónico al nuevo cliente. El cliente deberá cambiarla obligatoriamente en su primer inicio de sesión.
+
+                                <TextField 
+                                    fullWidth 
+                                    type="email" 
+                                    label="Correo Electrónico" 
+                                    placeholder="cliente@ejemplo.com"
+                                    value={formData.email} 
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                                    required 
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start"><IconMail size={18} color="#64748b" /></InputAdornment>
+                                    }}
+                                    helperText="Se enviará a este correo la confirmación de registro y las credenciales"
+                                />
+
+                                <Alert 
+                                    severity="info" 
+                                    icon={<IconInfoCircle size={22} />}
+                                    sx={{ borderRadius: 2, bgcolor: '#f0f9ff', borderColor: '#bae6fd', border: '1px solid' }}
+                                >
+                                    <Typography variant="body2" fontWeight="700" color="#0369a1" gutterBottom>
+                                        Acceso y Clave de Seguridad:
+                                    </Typography>
+                                    <Typography variant="caption" color="#0c4a6e" component="div" sx={{ lineHeight: 1.6 }}>
+                                        • <strong>Usuario:</strong> Número de Cédula.<br />
+                                        • <strong>Contraseña inicial:</strong> Número de Cédula.<br />
+                                        • <strong>Seguridad:</strong> El sistema exigirá obligatoriamente al cliente cambiar su contraseña en su primer inicio de sesión.
+                                    </Typography>
                                 </Alert>
-                                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                    <Button type="submit" variant="contained" size="large" disabled={createLoading}
-                                        sx={{ minWidth: 280, borderRadius: 2, fontSize: '1rem', fontWeight: 'bold', bgcolor: '#0288d1', '&:hover': { bgcolor: '#01579b' } }}>
+
+                                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
+                                    <Button 
+                                        type="submit" 
+                                        variant="contained" 
+                                        size="large" 
+                                        disabled={createLoading}
+                                        startIcon={!createLoading && <IconUserPlus size={20} />}
+                                        sx={{ 
+                                            minWidth: 280, 
+                                            borderRadius: 2.5, 
+                                            py: 1.5,
+                                            fontSize: '1rem', 
+                                            fontWeight: 'bold', 
+                                            bgcolor: '#0288d1', 
+                                            '&:hover': { bgcolor: '#01579b' } 
+                                        }}
+                                    >
                                         {createLoading ? <CircularProgress size={24} color="inherit" /> : 'Registrar Cliente'}
                                     </Button>
                                 </Box>
@@ -324,69 +563,141 @@ export default function GestionClientes() {
             </Paper>
 
             {/* ====== MODAL EDITAR ====== */}
-            <Dialog open={editOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
-                <DialogTitle fontWeight="bold">Editar Cliente</DialogTitle>
+            <Dialog open={editOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#1e293b' }}>
+                    <IconEdit size={22} color="#0288d1" /> Editar Datos del Cliente
+                </DialogTitle>
                 <DialogContent dividers>
-                    {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
-                    <Stack spacing={2} sx={{ mt: 1 }}>
+                    {editError && <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }}>{editError}</Alert>}
+                    <Stack spacing={2.5} sx={{ mt: 1 }}>
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                            <TextField fullWidth label="Usuario" value={editForm.username} onChange={e => setEditForm({ ...editForm, username: e.target.value })} required />
-                            <TextField fullWidth label="Nombre" value={editForm.first_name} onChange={e => setEditForm({ ...editForm, first_name: e.target.value })} required />
+                            <TextField 
+                                fullWidth 
+                                label="Nombre(s)" 
+                                value={editForm.first_name} 
+                                onChange={e => setEditForm({ ...editForm, first_name: e.target.value })} 
+                                required 
+                            />
+                            <TextField 
+                                fullWidth 
+                                label="Apellido(s)" 
+                                value={editForm.last_name} 
+                                onChange={e => setEditForm({ ...editForm, last_name: e.target.value })} 
+                                required 
+                            />
                         </Box>
+
                         <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                            <TextField fullWidth label="Apellido" value={editForm.last_name} onChange={e => setEditForm({ ...editForm, last_name: e.target.value })} required />
-                            <TextField fullWidth type="email" label="Correo" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} />
+                            <TextField 
+                                fullWidth 
+                                label="Cédula / Documento" 
+                                value={editForm.cedula} 
+                                onChange={e => setEditForm({ ...editForm, cedula: e.target.value })} 
+                                required 
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start"><IconId size={18} color="#64748b" /></InputAdornment>
+                                }}
+                            />
+                            <TextField 
+                                fullWidth 
+                                label="Teléfono" 
+                                value={editForm.telefono} 
+                                onChange={e => setEditForm({ ...editForm, telefono: e.target.value })} 
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start"><IconPhone size={18} color="#64748b" /></InputAdornment>
+                                }}
+                            />
                         </Box>
+
+                        <TextField 
+                            fullWidth 
+                            type="email" 
+                            label="Correo Electrónico" 
+                            value={editForm.email} 
+                            onChange={e => setEditForm({ ...editForm, email: e.target.value })} 
+                            InputProps={{
+                                startAdornment: <InputAdornment position="start"><IconMail size={18} color="#64748b" /></InputAdornment>
+                            }}
+                        />
+
                         <TextField
-                            fullWidth type="password" label="Nueva Contraseña (vacío = no cambiar)"
-                            value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })}
-                            InputProps={{ startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" color="action" /></InputAdornment> }}
+                            fullWidth 
+                            type="password" 
+                            label="Nueva Contraseña (dejar en blanco para conservar la actual)"
+                            value={editForm.password} 
+                            onChange={e => setEditForm({ ...editForm, password: e.target.value })}
+                            InputProps={{ 
+                                startAdornment: <InputAdornment position="start"><IconLock size={18} color="#64748b" /></InputAdornment> 
+                            }}
                         />
                     </Stack>
                 </DialogContent>
-                <DialogActions sx={{ p: 2, gap: 1 }}>
-                    <Button onClick={handleCloseEdit} disabled={editLoading}>Cancelar</Button>
-                    <Button onClick={handleEditSubmit} variant="contained" disabled={editLoading}>
+                <DialogActions sx={{ p: 2.5, gap: 1 }}>
+                    <Button onClick={handleCloseEdit} disabled={editLoading} sx={{ borderRadius: 2 }}>Cancelar</Button>
+                    <Button 
+                        onClick={handleEditSubmit} 
+                        variant="contained" 
+                        disabled={editLoading}
+                        startIcon={!editLoading && <IconCheck size={18} />}
+                        sx={{ borderRadius: 2, bgcolor: '#0288d1', '&:hover': { bgcolor: '#01579b' } }}
+                    >
                         {editLoading ? <CircularProgress size={22} color="inherit" /> : 'Guardar Cambios'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* ====== MODAL ELIMINAR ====== */}
-            <Dialog open={deleteOpen} onClose={handleCloseDelete} maxWidth="xs" fullWidth>
-                <DialogTitle fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <DeleteIcon color="error" /> Eliminar Cliente
+            <Dialog open={deleteOpen} onClose={handleCloseDelete} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle fontWeight="800" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ef4444' }}>
+                    <IconTrash size={22} /> Eliminar Cliente
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText>
-                        ¿Eliminar al cliente <strong>@{deleteCliente?.username}</strong>?
+                    <DialogContentText sx={{ color: '#334155', fontWeight: 500 }}>
+                        ¿Estás seguro de que deseas eliminar al cliente <strong>{deleteCliente?.first_name} {deleteCliente?.last_name}</strong> (C.I. {deleteCliente?.cedula || deleteCliente?.username})?
                     </DialogContentText>
-                    {deleteInfo.loading && <Box display="flex" justifyContent="center" mt={2}><CircularProgress size={24} /></Box>}
+                    
+                    {deleteInfo.loading && (
+                        <Box display="flex" justifyContent="center" mt={2.5}><CircularProgress size={24} /></Box>
+                    )}
+                    
                     {!deleteInfo.loading && deleteInfo.ordenes.length > 0 && (
-                        <Alert severity="error" icon={<WarningAmberIcon />} sx={{ mt: 2 }}>
+                        <Alert 
+                            severity="error" 
+                            icon={<IconAlertTriangle size={22} />} 
+                            sx={{ mt: 2.5, borderRadius: 2 }}
+                        >
                             <Typography variant="body2" fontWeight="bold" gutterBottom>
                                 Tiene {deleteInfo.ordenes.length} orden{deleteInfo.ordenes.length !== 1 ? 'es' : ''} de trabajo registrada{deleteInfo.ordenes.length !== 1 ? 's' : ''}.
                             </Typography>
-                            <Typography variant="caption">
-                                <strong>¡Atención!</strong> Al ser el titular de esas órdenes, <strong>todas se eliminarán permanentemente</strong> junto con sus avances y registros.
+                            <Typography variant="caption" component="div">
+                                <strong>¡Atención!</strong> Al ser el titular de esas órdenes, <strong>todas se eliminarán permanentemente</strong> junto con sus bitácoras y registros.
                             </Typography>
                         </Alert>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ p: 2, gap: 1 }}>
-                    <Button onClick={handleCloseDelete} disabled={deleteLoading}>Cancelar</Button>
-                    <Button onClick={handleConfirmDelete} variant="contained" color="error"
-                        disabled={deleteLoading || deleteInfo.loading}>
+                <DialogActions sx={{ p: 2.5, gap: 1 }}>
+                    <Button onClick={handleCloseDelete} disabled={deleteLoading} sx={{ borderRadius: 2 }}>Cancelar</Button>
+                    <Button 
+                        onClick={handleConfirmDelete} 
+                        variant="contained" 
+                        color="error"
+                        disabled={deleteLoading || deleteInfo.loading}
+                        startIcon={!deleteLoading && <IconTrash size={18} />}
+                        sx={{ borderRadius: 2 }}
+                    >
                         {deleteLoading ? <CircularProgress size={22} color="inherit" /> : 'Sí, eliminar'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* ====== SNACKBAR ====== */}
-            <Snackbar open={snack.open} autoHideDuration={4000}
+            <Snackbar 
+                open={snack.open} 
+                autoHideDuration={4000}
                 onClose={() => setSnack(s => ({ ...s, open: false }))}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-                <Alert severity={snack.severity} variant="filled" onClose={() => setSnack(s => ({ ...s, open: false }))}>
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert severity={snack.severity} variant="filled" onClose={() => setSnack(s => ({ ...s, open: false }))} sx={{ borderRadius: 2 }}>
                     {snack.msg}
                 </Alert>
             </Snackbar>

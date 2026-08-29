@@ -2,27 +2,80 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
 from .models import (
-    Estado, OrdenTrabajo, Avance, FotoAvance,
+    Estado, OrdenTrabajo, Avance, FotoAvance, Profile,
     ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario
 ) 
 
 import secrets
 
 class ClienteSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False)
+    cedula = serializers.CharField(write_only=True, required=False)
+    telefono = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password']
-    
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'cedula', 'telefono', 'password']
+        extra_kwargs = {
+            'username': {'required': False},
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'email': {'required': True},
+        }
+
+    def validate_email(self, value):
+        if not value:
+            return value
+        qs = User.objects.filter(email__iexact=value.strip())
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Este correo electrónico ya está registrado.")
+        return value.strip()
+
+    def validate(self, attrs):
+        cedula = attrs.get('cedula') or attrs.get('username')
+        if not self.instance:
+            # Creación
+            if not cedula or not str(cedula).strip():
+                raise serializers.ValidationError({"cedula": "El número de cédula es obligatorio."})
+            cedula_limpia = str(cedula).strip()
+            if User.objects.filter(username__iexact=cedula_limpia).exists():
+                raise serializers.ValidationError({"cedula": "Ya existe un usuario registrado con esta cédula."})
+            attrs['cedula'] = cedula_limpia
+            attrs['username'] = cedula_limpia
+        else:
+            # Actualización
+            if cedula:
+                cedula_limpia = str(cedula).strip()
+                if User.objects.filter(username__iexact=cedula_limpia).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError({"cedula": "Ya existe otro usuario con esta cédula."})
+                attrs['cedula'] = cedula_limpia
+                attrs['username'] = cedula_limpia
+        return attrs
+
     def create(self, validated_data):
+        cedula = validated_data.pop('cedula', '').strip()
+        telefono = validated_data.pop('telefono', '').strip()
         password = validated_data.pop('password', None)
+        
+        # La cédula se usa como username y como contraseña inicial por defecto
         if not password:
-            # Contraseña amigable y fácil de escribir: Systma + 4 dígitos (ej: Systma4821)
-            password = f"Systma{secrets.randbelow(9000) + 1000}"
-        # Guardamos la contraseña temporal en el objeto para que la vista pueda notificarla si aplica
+            password = cedula
+        
+        validated_data['username'] = cedula
         user = User.objects.create_user(**validated_data, password=password)
         user._raw_password = password
+        user._cedula = cedula
+        
+        # Guardar en Profile
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.cedula = cedula
+        profile.telefono = telefono
+        profile.debe_cambiar_password = True
+        profile.save()
+        user.profile = profile
+
         # Asignar al grupo "Cliente"
         try:
             grupo = Group.objects.get(name='Cliente')
@@ -32,13 +85,38 @@ class ClienteSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
+        cedula = validated_data.pop('cedula', None)
+        telefono = validated_data.pop('telefono', None)
         password = validated_data.pop('password', None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if cedula:
+            instance.username = cedula.strip()
+
         if password:
             instance.set_password(password)
+
         instance.save()
+
+        # Actualizar perfil
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        if cedula:
+            profile.cedula = cedula.strip()
+        if telefono is not None:
+            profile.telefono = telefono.strip()
+        profile.save()
+        instance.profile = profile
+
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        profile = getattr(instance, 'profile', None)
+        data['cedula'] = getattr(profile, 'cedula', '') or instance.username
+        data['telefono'] = getattr(profile, 'telefono', '')
+        return data
 
 class EstadoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -89,19 +167,28 @@ class MovimientoInventarioSerializer(serializers.ModelSerializer):
     item_codigo = serializers.ReadOnlyField(source='item.codigo')
     item_unidad = serializers.ReadOnlyField(source='item.unidad_medida')
     tipo_movimiento_display = serializers.CharField(source='get_tipo_movimiento_display', read_only=True)
-    usuario_nombre = serializers.ReadOnlyField(source='usuario.username')
+    usuario_nombre = serializers.SerializerMethodField()
     orden_titulo = serializers.ReadOnlyField(source='orden.titulo')
 
     class Meta:
         model = MovimientoInventario
         fields = '__all__'
 
+    def get_usuario_nombre(self, obj):
+        if obj.usuario:
+            nombre = f"{obj.usuario.first_name} {obj.usuario.last_name}".strip()
+            return nombre if nombre else obj.usuario.username
+        return "Sistema / Almacén"
+
 
 class OrdenTrabajoSerializer(serializers.ModelSerializer):
     estado_data = EstadoSerializer(source='estado', read_only=True)
-    cliente_nombre = serializers.ReadOnlyField(source='cliente.username')
-    tecnico_nombre = serializers.ReadOnlyField(source='tecnico.username')
-    supervisor_nombre = serializers.ReadOnlyField(source='supervisor.username')
+    cliente_nombre = serializers.SerializerMethodField()
+    cliente_cedula = serializers.SerializerMethodField()
+    cliente_telefono = serializers.SerializerMethodField()
+    cliente_email = serializers.SerializerMethodField()
+    tecnico_nombre = serializers.SerializerMethodField()
+    supervisor_nombre = serializers.SerializerMethodField()
     herramientas_asignadas = HerramientaAsignadaOrdenSerializer(many=True, read_only=True)
     materiales_usados = MaterialUsadoOrdenSerializer(many=True, read_only=True)
     
@@ -109,39 +196,106 @@ class OrdenTrabajoSerializer(serializers.ModelSerializer):
         model = OrdenTrabajo
         fields = '__all__'
 
-# --- SERIALIZER PARA CREAR/EDITAR USUARIOS (STAFF) ---
+    def get_cliente_nombre(self, obj):
+        if obj.cliente:
+            nombre = f"{obj.cliente.first_name} {obj.cliente.last_name}".strip()
+            return nombre if nombre else obj.cliente.username
+        return "Sin Cliente"
+
+    def get_cliente_cedula(self, obj):
+        if obj.cliente:
+            profile = getattr(obj.cliente, 'profile', None)
+            return getattr(profile, 'cedula', '') or obj.cliente.username
+        return ""
+
+    def get_cliente_telefono(self, obj):
+        if obj.cliente:
+            profile = getattr(obj.cliente, 'profile', None)
+            return getattr(profile, 'telefono', '')
+        return ""
+
+    def get_cliente_email(self, obj):
+        return obj.cliente.email if obj.cliente else ""
+
+    def get_tecnico_nombre(self, obj):
+        if obj.tecnico:
+            nombre = f"{obj.tecnico.first_name} {obj.tecnico.last_name}".strip()
+            return nombre if nombre else obj.tecnico.username
+        return ""
+
+    def get_supervisor_nombre(self, obj):
+        if obj.supervisor:
+            nombre = f"{obj.supervisor.first_name} {obj.supervisor.last_name}".strip()
+            return nombre if nombre else obj.supervisor.username
+        return ""
+
+# --- SERIALIZER PARA CREAR/EDITAR USUARIOS (STAFF: TÉCNICOS Y SUPERVISORES) ---
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
+    cedula = serializers.CharField(write_only=True, required=False)
+    telefono = serializers.CharField(write_only=True, required=False, allow_blank=True)
     rol = serializers.ChoiceField(choices=['Tecnico', 'Supervisor'], write_only=True, required=False)
-    password = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
     rol_actual = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'password', 'rol', 'rol_actual']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'cedula', 'telefono', 'password', 'rol', 'rol_actual']
+        extra_kwargs = {
+            'username': {'required': False},
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'email': {'required': True},
+        }
 
     def get_rol_actual(self, obj):
         groups = obj.groups.values_list('name', flat=True)
         return list(groups)[0] if groups else None
 
     def validate_email(self, value):
-        if not value: return value
-        qs = User.objects.filter(email=value)
+        if not value:
+            return value
+        qs = User.objects.filter(email__iexact=value.strip())
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise serializers.ValidationError("Este correo electrónico ya está registrado.")
-        return value
+        return value.strip()
+
+    def validate(self, attrs):
+        cedula = attrs.get('cedula') or attrs.get('username')
+        if not self.instance:
+            # Creación
+            if not cedula or not str(cedula).strip():
+                raise serializers.ValidationError({"cedula": "El número de cédula es obligatorio."})
+            cedula_limpia = str(cedula).strip()
+            if User.objects.filter(username__iexact=cedula_limpia).exists():
+                raise serializers.ValidationError({"cedula": "Ya existe un usuario registrado con esta cédula."})
+            attrs['cedula'] = cedula_limpia
+            attrs['username'] = cedula_limpia
+        else:
+            # Actualización
+            if cedula:
+                cedula_limpia = str(cedula).strip()
+                if User.objects.filter(username__iexact=cedula_limpia).exclude(pk=self.instance.pk).exists():
+                    raise serializers.ValidationError({"cedula": "Ya existe otro usuario registrado con esta cédula."})
+                attrs['cedula'] = cedula_limpia
+                attrs['username'] = cedula_limpia
+        return attrs
 
     def create(self, validated_data):
         rol_nombre = validated_data.pop('rol', None)
+        cedula = validated_data.pop('cedula', '').strip()
+        telefono = validated_data.pop('telefono', '').strip()
         password = validated_data.pop('password', None)
+        
+        # La cédula se usa como username y como contraseña inicial por defecto
         if not password:
-            # Contraseña amigable y fácil de escribir: Systma + 4 dígitos (ej: Systma7391)
-            password = f"Systma{secrets.randbelow(9000) + 1000}"
+            password = cedula
 
-        # Crear el usuario
+        validated_data['username'] = cedula
         user = User.objects.create_user(**validated_data, password=password)
         user._raw_password = password
+        user._cedula = cedula
         
         # Asignar al grupo correspondiente
         if rol_nombre:
@@ -150,15 +304,28 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
                 user.groups.add(grupo)
             except Group.DoesNotExist:
                 pass 
+
+        # Guardar en Profile
+        profile, _ = Profile.objects.get_or_create(user=user)
+        profile.cedula = cedula
+        profile.telefono = telefono
+        profile.debe_cambiar_password = True
+        profile.save()
+        user.profile = profile
             
         return user
 
     def update(self, instance, validated_data):
         rol_nombre = validated_data.pop('rol', None)
+        cedula = validated_data.pop('cedula', None)
+        telefono = validated_data.pop('telefono', None)
         password = validated_data.pop('password', None)
         
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if cedula:
+            instance.username = cedula.strip()
             
         if password:
             instance.set_password(password)
@@ -172,8 +339,24 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
                 instance.groups.add(grupo)
             except Group.DoesNotExist:
                 pass
+
+        # Actualizar Profile
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        if cedula:
+            profile.cedula = cedula.strip()
+        if telefono is not None:
+            profile.telefono = telefono.strip()
+        profile.save()
+        instance.profile = profile
                 
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        profile = getattr(instance, 'profile', None)
+        data['cedula'] = getattr(profile, 'cedula', '') or instance.username
+        data['telefono'] = getattr(profile, 'telefono', '')
+        return data
     
 # --- NUEVOS SERIALIZERS PARA BITÁCORA CON FOTOS ---
 

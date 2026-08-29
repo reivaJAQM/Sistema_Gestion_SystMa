@@ -227,13 +227,13 @@ export default function GestionInventario() {
     };
 
     const formatearStockTexto = (valor, unidad) => {
-        const num = Number(valor) || 0;
-        const numFormateado = Number.isInteger(num) ? num : parseFloat(num.toFixed(2));
-        let unidadTexto = unidad ? unidad.trim() : '';
-        if (unidadTexto.toLowerCase() === 'unidad' || unidadTexto.toLowerCase() === 'unidades') {
-            unidadTexto = numFormateado === 1 ? 'Unidad' : 'Unidades';
+        const num = Math.round(Number(valor) || 0);
+        const numAbs = Math.abs(num);
+        let unidadTexto = unidad ? unidad.trim() : 'Unidad';
+        if (!unidadTexto || unidadTexto.toLowerCase() === 'unidad' || unidadTexto.toLowerCase() === 'unidades') {
+            unidadTexto = numAbs >= 2 ? 'Unidades' : 'Unidad';
         }
-        return { num: numFormateado, unidad: unidadTexto };
+        return { num, unidad: unidadTexto };
     };
 
     return (
@@ -569,7 +569,6 @@ export default function GestionInventario() {
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Orden de Trabajo</TableCell>
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Fecha Asignación</TableCell>
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Estado</TableCell>
-                                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Acción</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -590,27 +589,7 @@ export default function GestionInventario() {
                                                         {new Date(asig.fecha_asignacion).toLocaleString()}
                                                     </TableCell>
                                                     <TableCell align="center">
-                                                        <Chip size="small" label="En Uso / Prestada" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 'bold' }} />
-                                                    </TableCell>
-                                                    <TableCell align="center">
-                                                        <Button
-                                                            size="small"
-                                                            variant="contained"
-                                                            color="success"
-                                                            onClick={async () => {
-                                                                if (window.confirm(`¿Confirmar recepción/devolución de la herramienta ${asig.herramienta_nombre}?`)) {
-                                                                    try {
-                                                                        await api.post(`orden-herramientas/${asig.id}/marcar-devolucion/`, {});
-                                                                        cargarDatos();
-                                                                    } catch (err) {
-                                                                        alert('Error al registrar la devolución.');
-                                                                    }
-                                                                }
-                                                            }}
-                                                            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 'bold' }}
-                                                        >
-                                                            Recibir / Devolver
-                                                        </Button>
+                                                        <Chip size="small" label="En Uso" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 'bold' }} />
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -641,20 +620,28 @@ export default function GestionInventario() {
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Tipo de Movimiento</TableCell>
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Cantidad</TableCell>
                                                 <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Stock Resultante</TableCell>
-                                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Usuario</TableCell>
+                                                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#475569' }}>Técnico</TableCell>
                                                 <TableCell sx={{ fontWeight: 'bold', color: '#475569' }}>Motivo / Orden</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {movimientos.map((m) => {
                                                 const esEntrada = m.tipo_movimiento === 'ENTRADA' || m.tipo_movimiento === 'DEVOLUCION';
+                                                const cantEntera = Math.round(Number(m.cantidad) || 0);
+                                                const cantAbs = Math.abs(cantEntera);
+                                                const unidadCant = cantAbs >= 2 ? 'Unidades' : 'Unidad';
+
+                                                const stockNuevoEntero = Math.round(Number(m.stock_nuevo) || 0);
+                                                const stockAbs = Math.abs(stockNuevoEntero);
+                                                const unidadStock = stockAbs >= 2 ? 'Unidades' : 'Unidad';
+
                                                 return (
                                                     <TableRow key={m.id} hover>
                                                         <TableCell align="center" sx={{ color: '#64748b', fontSize: '0.85rem' }}>
                                                             {new Date(m.fecha).toLocaleString()}
                                                         </TableCell>
                                                         <TableCell sx={{ fontWeight: 'bold', color: '#1e293b' }}>
-                                                            {m.item_nombre} <Typography component="span" variant="caption" color="#94a3b8">({m.item_codigo})</Typography>
+                                                            {m.item_nombre}
                                                         </TableCell>
                                                         <TableCell align="center">
                                                             <Chip
@@ -668,10 +655,10 @@ export default function GestionInventario() {
                                                             />
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ fontWeight: 'bold', color: esEntrada ? '#16a34a' : '#dc2626' }}>
-                                                            {esEntrada ? `+${m.cantidad}` : `-${m.cantidad}`} {m.item_unidad}
+                                                            {esEntrada ? `+${cantEntera}` : `-${cantEntera}`} {unidadCant}
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ fontWeight: 'bold', color: '#334155' }}>
-                                                            {m.stock_nuevo} {m.item_unidad}
+                                                            {stockNuevoEntero} {unidadStock}
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ color: '#64748b' }}>
                                                             {m.usuario_nombre || 'Sistema'}

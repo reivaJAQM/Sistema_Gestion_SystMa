@@ -57,8 +57,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         data['username'] = self.user.username
         data['email'] = self.user.email
-        data['user_id'] = self.user.id
-        data['nombre_completo'] = self.user.first_name if self.user.first_name else self.user.username
+        nombre_completo = f"{self.user.first_name} {self.user.last_name}".strip()
+        data['nombre_completo'] = nombre_completo if nombre_completo else self.user.username
 
         if self.user.is_superuser:
             data['rol'] = 'Administrador'
@@ -152,6 +152,17 @@ class OrdenTrabajoViewSet(viewsets.ModelViewSet):
         
         instance = serializer.save()
 
+        # ── Devolución automática de herramientas al finalizar la orden ────
+        if instance.estado and instance.estado.nombre == 'Finalizado':
+            from django.utils import timezone
+            for asig in instance.herramientas_asignadas.filter(devuelta=False):
+                asig.devuelta = True
+                asig.fecha_devolucion = timezone.now()
+                asig.save()
+                herramienta = asig.herramienta
+                herramienta.estado_herramienta = 'DISPONIBLE'
+                herramienta.save()
+
         # ── Notificaciones al actualizar ─────────────────────────────────
         if instance.tecnico != old_tecnico and instance.tecnico:
             notificar_tecnico_asignado(instance)
@@ -186,12 +197,12 @@ class ClienteViewSet(viewsets.ModelViewSet):
 
 class SupervisorViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(groups__name='Supervisor')
-    serializer_class = ClienteSerializer
+    serializer_class = RegistroUsuarioSerializer
     permission_classes = [IsAuthenticated]
 
 class TecnicoViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(groups__name='Tecnico')
-    serializer_class = ClienteSerializer
+    serializer_class = RegistroUsuarioSerializer
     permission_classes = [IsAuthenticated]
 
 class AvanceViewSet(viewsets.ModelViewSet):

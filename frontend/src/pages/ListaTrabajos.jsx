@@ -1,20 +1,27 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
-  Container, Typography, Box, Card, CardContent, CardActions, 
-  Button, Grid, Chip, CircularProgress, TextField, InputAdornment, 
-  MenuItem, FormControl, Select, InputLabel, Paper, IconButton, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Alert
+  Container, Typography, Box, Paper, Table, TableBody, 
+  TableCell, TableContainer, TableHead, TableRow, TablePagination,
+  Button, Chip, CircularProgress, TextField, InputAdornment, 
+  IconButton, Tooltip, Dialog, DialogTitle, DialogContent, 
+  DialogActions, Alert, Tabs, Tab, Avatar, Stack
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import PersonIcon from '@mui/icons-material/Person';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import EngineeringIcon from '@mui/icons-material/Engineering';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import DeleteIcon from '@mui/icons-material/Delete';
-
+import {
+  IconSearch,
+  IconEye,
+  IconTrash,
+  IconRefresh,
+  IconPlus,
+  IconCalendar,
+  IconMapPin,
+  IconPhone,
+  IconId,
+  IconTool,
+  IconUser,
+  IconAlertTriangle,
+  IconClipboardList,
+  IconFilter
+} from '@tabler/icons-react';
 import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -23,10 +30,14 @@ export default function ListaTrabajos() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   
-  // Filtros
+  // Filtros y Búsqueda
   const [busqueda, setBusqueda] = useState('');
   const location = useLocation(); 
-  const [filtroEstado, setFiltroEstado] = useState(location.state?.filtro || 'Todos');
+  const [tabEstado, setTabEstado] = useState(location.state?.filtro || 'Todos');
+
+  // Paginación
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Modal Eliminación
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -34,6 +45,7 @@ export default function ListaTrabajos() {
 
   const navigate = useNavigate();
   const userRol = localStorage.getItem('user_rol');
+  const esAdmin = userRol === 'Administrador';
 
   const fetchDatos = useCallback(async () => {
     setLoading(true);
@@ -41,7 +53,7 @@ export default function ListaTrabajos() {
       const { data } = await api.get('ordenes/');
       setOrdenes(data.sort((a, b) => b.id - a.id));
     } catch (error) {
-      console.error("Error cargando lista", error);
+      console.error("Error cargando lista de órdenes", error);
     } finally {
       setLoading(false);
     }
@@ -68,218 +80,461 @@ export default function ListaTrabajos() {
       setOrdenAEliminar(null);
       fetchDatos();
     } catch (error) {
-      console.error("Error al eliminar orden", error);
-      alert("Error al eliminar la orden de trabajo.");
+      console.error("Error al eliminar la orden", error);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const ordenesFiltradas = ordenes.filter(orden => {
-    const coincideTexto = 
-        orden.titulo.toLowerCase().includes(busqueda.toLowerCase()) ||
-        orden.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase());
-    const coincideEstado = 
-        filtroEstado === 'Todos' || 
-        orden.estado_data?.nombre === filtroEstado;
-    return coincideTexto && coincideEstado;
-  });
+  // Conteos por estado
+  const conteos = useMemo(() => {
+    const counts = {
+      Todos: ordenes.length,
+      Pendiente: 0,
+      'En Progreso': 0,
+      'En Revisión': 0,
+      Finalizado: 0,
+      Cancelado: 0
+    };
+    ordenes.forEach(o => {
+      const estado = o.estado_data?.nombre;
+      if (counts[estado] !== undefined) {
+        counts[estado]++;
+      }
+    });
+    return counts;
+  }, [ordenes]);
 
-  if (loading) return <Box sx={{ p: 5, textAlign: 'center' }}><CircularProgress /></Box>;
+  // Filtrado de órdenes
+  const ordenesFiltradas = useMemo(() => {
+    return ordenes.filter(orden => {
+      const q = busqueda.toLowerCase().trim();
+      const titulo = (orden.titulo || '').toLowerCase();
+      const cliente = (orden.cliente_nombre || '').toLowerCase();
+      const cedula = (orden.cliente_cedula || '').toLowerCase();
+      const direccion = (orden.direccion || '').toLowerCase();
+      const tecnico = (orden.tecnico_nombre || '').toLowerCase();
+      const idStr = String(orden.id);
+
+      const coincideTexto = !q || (
+        titulo.includes(q) ||
+        cliente.includes(q) ||
+        cedula.includes(q) ||
+        direccion.includes(q) ||
+        tecnico.includes(q) ||
+        idStr.includes(q)
+      );
+
+      const coincideEstado = tabEstado === 'Todos' || orden.estado_data?.nombre === tabEstado;
+
+      return coincideTexto && coincideEstado;
+    });
+  }, [ordenes, busqueda, tabEstado]);
+
+  // Manejo de paginación
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const ordenesPaginadas = useMemo(() => {
+    return ordenesFiltradas.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [ordenesFiltradas, page, rowsPerPage]);
+
+  const formatearFecha = (fechaStr) => {
+    if (!fechaStr) return { fecha: 'Sin programar', hora: '' };
+    const date = new Date(fechaStr);
+    const fecha = date.toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
+    const hora = date.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+    return { fecha, hora };
+  };
 
   return (
-    // CAMBIO 1: maxWidth={false} permite que ocupe todo el ancho disponible
-    <Container maxWidth={false} sx={{ mt: 2, mb: 4, px: { xs: 2, md: 4 } }}>
+    <Container maxWidth={false} sx={{ mt: 3, mb: 6, px: { xs: 2, md: 4 } }}>
       
-      {/* Encabezado */}
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      {/* CABECERA PRINCIPAL */}
+      <Box sx={{ mb: 3.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight="900" sx={{ color: '#1e293b', letterSpacing: '-0.02em' }}>
+          <Typography variant="h4" fontWeight="800" sx={{ color: '#1e293b', letterSpacing: '-0.02em' }}>
             Órdenes de Trabajo
           </Typography>
-          <Typography variant="body1" sx={{ color: '#64748b', mt: 0.5 }}>
-            Consulta, filtra y gestiona todas las órdenes de trabajo del sistema
+          <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>
+            Directorio operativo, seguimiento de estados y control de servicios
           </Typography>
         </Box>
-        <Tooltip title="Recargar datos">
-          <IconButton onClick={fetchDatos} sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', p: 1.2, borderRadius: '12px' }}>
-            <RefreshIcon sx={{ color: '#2563eb' }} />
-          </IconButton>
-        </Tooltip>
+
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Tooltip title="Actualizar listado">
+            <IconButton 
+              onClick={fetchDatos} 
+              sx={{ bgcolor: '#ffffff', border: '1px solid #e2e8f0', p: 1.2, borderRadius: 2, '&:hover': { bgcolor: '#f8fafc' } }}
+            >
+              <IconRefresh size={20} color="#0288d1" />
+            </IconButton>
+          </Tooltip>
+          
+          <Button
+            variant="contained"
+            startIcon={<IconPlus size={20} />}
+            onClick={() => navigate('/nueva-orden')}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 700,
+              px: 2.5,
+              py: 1.2,
+              bgcolor: '#0288d1',
+              '&:hover': { bgcolor: '#01579b' },
+              boxShadow: '0 4px 12px rgba(2, 136, 209, 0.25)'
+            }}
+          >
+            Nueva Orden
+          </Button>
+        </Stack>
       </Box>
 
-      {/* CAMBIO 2: Barra de Herramientas en un Paper para mejor UI */}
-      <Paper elevation={2} sx={{ p: 2, mb: 4, borderRadius: 2, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-        <Box>
-            <Typography variant="subtitle1" fontWeight="bold">
-                {filtroEstado === 'Todos' ? 'Vista General' : `Filtrado por: ${filtroEstado}`}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-                {ordenesFiltradas.length} órdenes encontradas
-            </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 2, width: { xs: '100%', md: 'auto' }, flexWrap: 'wrap' }}>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Estado</InputLabel>
-                <Select
-                    value={filtroEstado}
-                    label="Estado"
-                    onChange={(e) => setFiltroEstado(e.target.value)}
-                    startAdornment={<FilterListIcon sx={{ mr: 1, color: 'action.active', fontSize: 20 }} />}
-                >
-                    <MenuItem value="Todos">Todos</MenuItem>
-                    <MenuItem value="Pendiente">Pendientes</MenuItem>
-                    <MenuItem value="En Progreso">En Ejecución</MenuItem>
-                    <MenuItem value="En Revisión">En Revisión</MenuItem>
-                    <MenuItem value="Finalizado">Finalizados</MenuItem>
-                </Select>
-            </FormControl>
-
-            <TextField
-                placeholder="Buscar cliente o título..."
-                variant="outlined"
-                size="small"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                sx={{ minWidth: 250 }}
-                InputProps={{
-                    startAdornment: (
-                        <InputAdornment position="start">
-                            <SearchIcon color="action" />
-                        </InputAdornment>
-                    ),
-                }}
+      {/* CONTENEDOR PRINCIPAL */}
+      <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden', bgcolor: '#ffffff' }}>
+        
+        {/* PESTAÑAS DE ESTADO */}
+        <Box sx={{ borderBottom: 1, borderColor: '#e2e8f0', bgcolor: '#f8fafc', px: 2, pt: 1 }}>
+          <Tabs 
+            value={tabEstado} 
+            onChange={(_, v) => { setTabEstado(v); setPage(0); }}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                minHeight: 48,
+                px: 2,
+              }
+            }}
+          >
+            <Tab 
+              value="Todos" 
+              label={`Todos (${conteos.Todos})`} 
             />
+            <Tab 
+              value="Pendiente" 
+              label={`Pendientes (${conteos.Pendiente})`} 
+            />
+            <Tab 
+              value="En Progreso" 
+              label={`En Progreso (${conteos['En Progreso']})`} 
+            />
+            <Tab 
+              value="En Revisión" 
+              label={`En Revisión (${conteos['En Revisión']})`} 
+            />
+            <Tab 
+              value="Finalizado" 
+              label={`Finalizados (${conteos.Finalizado})`} 
+            />
+            {conteos.Cancelado > 0 && (
+              <Tab 
+                value="Cancelado" 
+                label={`Cancelados (${conteos.Cancelado})`} 
+              />
+            )}
+          </Tabs>
         </Box>
+
+        {/* BARRA DE HERRAMIENTAS Y BÚSQUEDA */}
+        <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, bgcolor: '#ffffff' }}>
+          <TextField
+            placeholder="Buscar por #ID, título, cliente, cédula, dirección o técnico..."
+            variant="outlined"
+            size="small"
+            value={busqueda}
+            onChange={(e) => { setBusqueda(e.target.value); setPage(0); }}
+            sx={{ 
+              width: { xs: '100%', sm: 420 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                bgcolor: '#f8fafc',
+              }
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <IconSearch size={18} color="#64748b" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Typography variant="body2" color="text.secondary" fontWeight="600">
+            Mostrando <strong>{ordenesFiltradas.length}</strong> {ordenesFiltradas.length === 1 ? 'orden' : 'órdenes'}
+          </Typography>
+        </Box>
+
+        {/* TABLA DE ÓRDENES */}
+        <TableContainer>
+          <Table sx={{ minWidth: 850 }}>
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f8fafc', '& th': { color: '#475569', fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', py: 1.8 } }}>
+                <TableCell align="center" sx={{ width: 90 }}># Orden</TableCell>
+                <TableCell align="left">Trabajo / Ubicación</TableCell>
+                <TableCell align="left">Cliente</TableCell>
+                <TableCell align="left">Técnico Asignado</TableCell>
+                <TableCell align="center">Fecha Programada</TableCell>
+                <TableCell align="center" sx={{ width: 140 }}>Estado</TableCell>
+                <TableCell align="center" sx={{ width: 140 }}>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                    <CircularProgress size={36} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                      Cargando órdenes de trabajo...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : ordenesPaginadas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                    <IconClipboardList size={52} stroke={1.3} color="#94a3b8" style={{ marginBottom: 10 }} />
+                    <Typography variant="h6" color="#334155" fontWeight="700">
+                      No se encontraron órdenes de trabajo
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {busqueda ? 'Intenta ajustando el término de búsqueda o cambiando de pestaña.' : 'Aún no se han registrado órdenes en esta sección.'}
+                    </Typography>
+                    {busqueda && (
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        onClick={() => { setBusqueda(''); setTabEstado('Todos'); }}
+                        sx={{ mt: 2, borderRadius: 2 }}
+                      >
+                        Restablecer filtros
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                ordenesPaginadas.map((orden) => {
+                  const { fecha, hora } = formatearFecha(orden.fecha_inicio);
+                  const colorEstado = orden.estado_data?.color || '#64748b';
+                  const inicialesTecnico = orden.tecnico_nombre
+                    ? orden.tecnico_nombre.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+                    : '?';
+
+                  return (
+                    <TableRow
+                      key={orden.id}
+                      hover
+                      onClick={() => navigate(`/trabajo/${orden.id}`)}
+                      sx={{
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease',
+                        '&:hover': { bgcolor: '#f1f5f9' },
+                        '& td': { py: 2 }
+                      }}
+                    >
+                      {/* ID */}
+                      <TableCell align="center">
+                        <Chip
+                          label={`#${orden.id}`}
+                          size="small"
+                          sx={{
+                            fontWeight: 800,
+                            bgcolor: '#f1f5f9',
+                            color: '#1e293b',
+                            borderRadius: 1.5,
+                            fontFamily: 'monospace',
+                            fontSize: '0.82rem'
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* TÍTULO Y UBICACIÓN */}
+                      <TableCell align="left">
+                        <Typography variant="subtitle2" fontWeight="800" color="#0f172a" sx={{ lineHeight: 1.3 }}>
+                          {orden.titulo}
+                        </Typography>
+                        {orden.direccion ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.4 }}>
+                            <IconMapPin size={14} color="#64748b" style={{ flexShrink: 0 }} />
+                            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 260 }}>
+                              {orden.direccion}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', display: 'block', mt: 0.4 }}>
+                            Sin dirección especificada
+                          </Typography>
+                        )}
+                      </TableCell>
+
+                      {/* CLIENTE */}
+                      <TableCell align="left">
+                        <Typography variant="body2" fontWeight="700" color="#1e293b">
+                          {orden.cliente_nombre}
+                        </Typography>
+                      </TableCell>
+
+                      {/* TÉCNICO */}
+                      <TableCell align="left">
+                        {orden.tecnico_nombre ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#e65100', fontWeight: 700 }}>
+                              {inicialesTecnico}
+                            </Avatar>
+                            <Typography variant="body2" fontWeight="600" color="#334155">
+                              {orden.tecnico_nombre}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Chip 
+                            label="Sin Asignar" 
+                            size="small" 
+                            variant="outlined" 
+                            sx={{ color: '#94a3b8', borderColor: '#cbd5e1', fontStyle: 'italic', fontSize: '0.72rem' }} 
+                          />
+                        )}
+                      </TableCell>
+
+                      {/* FECHA */}
+                      <TableCell align="center">
+                        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <IconCalendar size={14} color="#64748b" />
+                            <Typography variant="body2" fontWeight="700" color="#334155">
+                              {fecha}
+                            </Typography>
+                          </Box>
+                          {hora && (
+                            <Typography variant="caption" color="text.secondary">
+                              {hora}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+
+                      {/* ESTADO */}
+                      <TableCell align="center">
+                        <Chip
+                          label={orden.estado_data?.nombre || 'Desconocido'}
+                          size="small"
+                          sx={{
+                            bgcolor: `${colorEstado}18`,
+                            color: colorEstado,
+                            fontWeight: 800,
+                            border: `1px solid ${colorEstado}40`,
+                            fontSize: '0.75rem',
+                            height: 24,
+                            px: 0.5
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* ACCIONES */}
+                      <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          <Tooltip title="Ver Detalle de la Orden">
+                            <IconButton
+                              size="small"
+                              onClick={() => navigate(`/trabajo/${orden.id}`)}
+                              sx={{
+                                color: '#0288d1',
+                                bgcolor: '#f0f9ff',
+                                '&:hover': { bgcolor: '#e0f2fe' }
+                              }}
+                            >
+                              <IconEye size={17} />
+                            </IconButton>
+                          </Tooltip>
+
+                          {esAdmin && (
+                            <Tooltip title="Eliminar Orden">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setOrdenAEliminar(orden);
+                                  setOpenDeleteModal(true);
+                                }}
+                                sx={{
+                                  color: '#ef4444',
+                                  bgcolor: '#fef2f2',
+                                  '&:hover': { bgcolor: '#fee2e2' }
+                                }}
+                              >
+                                <IconTrash size={17} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* PAGINACIÓN */}
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50]}
+          component="div"
+          count={ordenesFiltradas.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Filas por página:"
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count !== -1 ? count : `más de ${to}`}`}
+          sx={{
+            borderTop: '1px solid #e2e8f0',
+            color: '#64748b',
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+              fontWeight: 600,
+              fontSize: '0.82rem'
+            }
+          }}
+        />
       </Paper>
 
-      {/* Grid de Resultados */}
-      <Grid container spacing={3}>
-        {ordenesFiltradas.length > 0 ? (
-            ordenesFiltradas.map((orden) => (
-                // CAMBIO 3: Ajuste de breakpoints. xl={2.4} o lg={3} para pantallas anchas
-                <Grid item xs={12} sm={6} md={4} lg={3} xl={2.4} key={orden.id}>
-                    <Card elevation={3} sx={{ 
-                        borderLeft: `6px solid ${orden.estado_data?.color || '#ccc'}`,
-                        height: '100%', display: 'flex', flexDirection: 'column',
-                        transition: 'transform 0.2s, box-shadow 0.2s', 
-                        '&:hover': { 
-                            transform: 'translateY(-4px)',
-                            boxShadow: 6 
-                        }
-                    }}>
-                        <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-                            <Box display="flex" justifyContent="space-between" mb={1.5}>
-                                <Chip label={`#${orden.id}`} size="small" variant="outlined" sx={{ fontWeight: 'bold', borderRadius: 1 }} />
-                                <Chip 
-                                    label={orden.estado_data?.nombre || 'N/A'} 
-                                    size="small" 
-                                    sx={{ 
-                                        bgcolor: `${orden.estado_data?.color}20`, // Color con transparencia de fondo
-                                        color: orden.estado_data?.color, 
-                                        fontWeight: 'bold',
-                                        border: `1px solid ${orden.estado_data?.color}`
-                                    }} 
-                                />
-                            </Box>
-                            
-                            <Typography variant="subtitle1" fontWeight="800" gutterBottom sx={{ lineHeight: 1.3, minHeight: '3rem' }}>
-                                {orden.titulo}
-                            </Typography>
-
-                            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                <Box display="flex" alignItems="center" gap={1}>
-                                    <PersonIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                    <Typography variant="body2" noWrap>{orden.cliente_nombre}</Typography>
-                                </Box>
-                                
-                                <Box display="flex" alignItems="center" gap={1}>
-                                    <EngineeringIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                        {orden.tecnico_nombre || "Sin Asignar"}
-                                    </Typography>
-                                </Box>
-
-                                <Box display="flex" alignItems="center" gap={1}>
-                                    <CalendarMonthIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                    <Typography variant="caption" color="text.secondary">
-                                        {orden.fecha_inicio ? new Date(orden.fecha_inicio).toLocaleDateString() : '---'}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                        
-                        <CardActions sx={{ p: 2, pt: 0, display: 'flex', gap: 1 }}>
-                            <Button 
-                                variant="contained" 
-                                fullWidth 
-                                startIcon={<VisibilityIcon />}
-                                onClick={() => navigate(`/trabajo/${orden.id}`)}
-                                sx={{ 
-                                    bgcolor: 'text.primary',
-                                    textTransform: 'none',
-                                    fontWeight: 'bold',
-                                    '&:hover': { bgcolor: 'primary.main' }
-                                }} 
-                            >
-                                Ver Detalle
-                            </Button>
-                            {userRol === 'Administrador' && (
-                              <Tooltip title="Eliminar Orden">
-                                <IconButton 
-                                  color="error" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOrdenAEliminar(orden);
-                                    setOpenDeleteModal(true);
-                                  }}
-                                  sx={{ 
-                                    border: '1px solid', 
-                                    borderColor: 'error.light', 
-                                    borderRadius: 1,
-                                    '&:hover': { bgcolor: 'error.lighter' }
-                                  }}
-                                >
-                                  <DeleteOutlineIcon />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                        </CardActions>
-                    </Card>
-                </Grid>
-            ))
-        ) : (
-            <Box sx={{ width: '100%', textAlign: 'center', mt: 8, opacity: 0.6 }}>
-                <SearchIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">No se encontraron órdenes</Typography>
-                <Button sx={{ mt: 2 }} variant="outlined" onClick={() => { setFiltroEstado('Todos'); setBusqueda(''); }}>
-                    Limpiar Filtros
-                </Button>
-            </Box>
-        )}
-      </Grid>
-
       {/* MODAL ELIMINAR ORDEN (SOLO ADMIN) */}
-      <Dialog open={openDeleteModal} onClose={() => setOpenDeleteModal(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main', fontWeight: 'bold' }}>
-          <DeleteIcon /> ¿Eliminar Orden de Trabajo?
+      <Dialog 
+        open={openDeleteModal} 
+        onClose={() => setOpenDeleteModal(false)} 
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#ef4444', fontWeight: '800' }}>
+          <IconTrash size={22} /> Eliminar Orden de Trabajo
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1" color="text.primary" gutterBottom>
-            Esta acción eliminará de forma permanente la orden <strong>"{ordenAEliminar?.titulo}"</strong> (#{ordenAEliminar?.id}), junto con todas sus fotos y avances.
+          <Typography variant="body1" color="text.primary" sx={{ mb: 2 }}>
+            ¿Estás seguro de que deseas eliminar permanentemente la orden <strong>"{ordenAEliminar?.titulo}"</strong> (#{ordenAEliminar?.id})?
           </Typography>
-          <Alert severity="error" sx={{ mt: 2 }}>
-            Esta operación no se puede deshacer.
+          <Alert severity="error" icon={<IconAlertTriangle size={20} />} sx={{ borderRadius: 2 }}>
+            Esta acción no se puede deshacer. Se eliminarán permanentemente todas las bitácoras, evidencias fotográficas y registros asociados.
           </Alert>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenDeleteModal(false)} color="inherit">Cancelar</Button>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={() => setOpenDeleteModal(false)} color="inherit" sx={{ borderRadius: 2 }}>
+            Cancelar
+          </Button>
           <Button 
             onClick={handleConfirmarEliminar} 
             variant="contained" 
             color="error" 
             disabled={actionLoading}
+            startIcon={!actionLoading && <IconTrash size={18} />}
+            sx={{ borderRadius: 2 }}
           >
             {actionLoading ? <CircularProgress size={20} color="inherit" /> : "Sí, Eliminar Definitivamente"}
           </Button>

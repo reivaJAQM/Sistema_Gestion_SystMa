@@ -4,11 +4,8 @@ import {
     Alert, CircularProgress, InputAdornment, Link 
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { IconUser, IconLock, IconLogin } from '@tabler/icons-react';
 import api from '../services/api';
-
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import LoginIcon from '@mui/icons-material/Login';
 
 export default function Login() {
     const [username, setUsername] = useState('');
@@ -23,7 +20,7 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const response = await api.post('token/', { username, password });
+            const response = await api.post('token/', { username: username.trim(), password });
             
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
@@ -51,10 +48,12 @@ export default function Login() {
             const rol = response.data.rol;
 
             if (rol === 'Tecnico') {
-              navigate('/calendario'); // Técnicos van directo a su agenda
+                navigate('/calendario'); // Técnicos van directo a su agenda
+            } else if (rol === 'Cliente') {
+                navigate('/mis-solicitudes'); // Clientes van directo a su portal
             } else {
-              navigate('/dashboard');  // Admin y Supervisor van al panel
-           }
+                navigate('/dashboard'); // Admin y Supervisor van al panel general
+            }
 
         } catch (error) {
             console.error('Error login', error);
@@ -119,7 +118,8 @@ export default function Login() {
                     )}
 
                     <TextField
-                        label="Usuario"
+                        label="Cédula o Usuario"
+                        placeholder="Ej: 0912345678"
                         variant="outlined"
                         fullWidth
                         required
@@ -128,7 +128,7 @@ export default function Login() {
                         InputProps={{
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <PersonOutlineIcon color="action" />
+                                    <IconUser size={20} color="#64748b" />
                                 </InputAdornment>
                             ),
                             style: { borderRadius: 12 }
@@ -147,14 +147,14 @@ export default function Login() {
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
-                                        <LockOutlinedIcon color="action" />
+                                        <IconLock size={20} color="#64748b" />
                                     </InputAdornment>
                                 ),
                                 style: { borderRadius: 12 }
                             }}
                         />
-                         {/* Enlace de Olvidaste tu contraseña */}
-                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                        {/* Enlace de Olvidaste tu contraseña */}
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
                             <Link 
                                 component="button" 
                                 type="button"
@@ -179,7 +179,7 @@ export default function Login() {
                         size="large"
                         disabled={loading}
                         disableElevation 
-                        startIcon={!loading && <LoginIcon />}
+                        startIcon={!loading && <IconLogin size={20} />}
                         sx={{ 
                             mt: 1, 
                             py: 1.5, 
@@ -187,8 +187,8 @@ export default function Login() {
                             fontSize: '1rem', 
                             fontWeight: 'bold',
                             textTransform: 'none',
-                            bgcolor: '#1976d2',
-                            '&:hover': { bgcolor: '#115293' }
+                            bgcolor: '#0288d1',
+                            '&:hover': { bgcolor: '#01579b' }
                         }}
                     >
                         {loading ? <CircularProgress size={24} color="inherit" /> : 'Entrar'}

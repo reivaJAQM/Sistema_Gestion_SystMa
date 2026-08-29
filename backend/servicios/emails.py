@@ -159,11 +159,16 @@ def notificar_bienvenida_personal(user, password_temporal, rol):
     """Envía correo de bienvenida al nuevo técnico o supervisor con sus credenciales."""
     if not user.email:
         return
+    profile = getattr(user, 'profile', None)
+    cedula = getattr(profile, 'cedula', '') or user.username
+    telefono = getattr(profile, 'telefono', '')
     _enviar(
         asunto="Bienvenido a SystMa — Tus credenciales de acceso",
         template="emails/bienvenida_personal.html",
         contexto={
             'usuario': user,
+            'cedula': cedula,
+            'telefono': telefono,
             'password_temporal': password_temporal,
             'rol': rol,
             'frontend_url': settings.FRONTEND_URL,
@@ -176,11 +181,16 @@ def notificar_registro_cliente(user, password_temporal):
     """Envía correo de bienvenida al nuevo cliente con sus credenciales de acceso."""
     if not user.email:
         return
+    profile = getattr(user, 'profile', None)
+    cedula = getattr(profile, 'cedula', '') or user.username
+    telefono = getattr(profile, 'telefono', '')
     _enviar(
         asunto="Bienvenido a SystMa — Tus credenciales de acceso",
         template="emails/bienvenida_cliente.html",
         contexto={
             'usuario': user,
+            'cedula': cedula,
+            'telefono': telefono,
             'password_temporal': password_temporal,
             'frontend_url': settings.FRONTEND_URL,
         },
