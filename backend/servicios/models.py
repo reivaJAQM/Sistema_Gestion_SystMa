@@ -177,3 +177,35 @@ class MovimientoInventario(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_movimiento_display()} - {self.item.nombre} ({self.cantidad})"
+
+
+class SolicitudInsumoOrden(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente de Aprobación'),
+        ('APROBADA', 'Aprobada / Despachada'),
+        ('RECHAZADA', 'Rechazada'),
+    ]
+    TIPO_CHOICES = [
+        ('MATERIAL', 'Material Consumible'),
+        ('HERRAMIENTA', 'Herramienta'),
+    ]
+
+    orden = models.ForeignKey(OrdenTrabajo, on_delete=models.CASCADE, related_name='solicitudes_insumos')
+    item = models.ForeignKey(ItemInventario, on_delete=models.CASCADE, related_name='solicitudes_ordenes')
+    tipo_item = models.CharField(max_length=20, choices=TIPO_CHOICES, default='MATERIAL')
+    cantidad = models.PositiveIntegerField(default=1, verbose_name="Cantidad Solicitada")
+    motivo = models.TextField(verbose_name="Motivo / Justificación")
+    solicitado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='insumos_solicitados')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE')
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    resuelto_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='insumos_resueltos')
+    fecha_resolucion = models.DateTimeField(null=True, blank=True)
+    observacion_resolucion = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = "Solicitud de Insumo Adicional"
+        verbose_name_plural = "Solicitudes de Insumos Adicionales"
+        ordering = ['-fecha_solicitud']
+
+    def __str__(self):
+        return f"Solicitud #{self.id}: {self.cantidad} de {self.item.nombre} (Orden #{self.orden.id}) - {self.estado}"

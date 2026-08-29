@@ -22,13 +22,15 @@ from rest_framework.response import Response
 # Importación de modelos y serializadores
 from .models import (
     Estado, OrdenTrabajo, Avance, FotoAvance, Profile,
-    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario
+    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario,
+    SolicitudInsumoOrden
 )
 from .serializers import (
     EstadoSerializer, OrdenTrabajoSerializer, ClienteSerializer,
     AvanceSerializer, RegistroUsuarioSerializer,
     ItemInventarioSerializer, HerramientaAsignadaOrdenSerializer,
-    MaterialUsadoOrdenSerializer, MovimientoInventarioSerializer
+    MaterialUsadoOrdenSerializer, MovimientoInventarioSerializer,
+    SolicitudInsumoOrdenSerializer
 )
 from rest_framework.decorators import action
 from django.utils import timezone
@@ -55,6 +57,8 @@ def validar_imagen(archivo):
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        data['user_id'] = self.user.id
+        data['id'] = self.user.id
         data['username'] = self.user.username
         data['email'] = self.user.email
         nombre_completo = f"{self.user.first_name} {self.user.last_name}".strip()
@@ -364,16 +368,30 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
+        user_roles = user.groups.values_list('name', flat=True)
+
         total = OrdenTrabajo.objects.count()
         pendientes = OrdenTrabajo.objects.filter(estado__nombre='Pendiente').count()
         progreso = OrdenTrabajo.objects.filter(estado__nombre='En Progreso').count()
+        revision = OrdenTrabajo.objects.filter(estado__nombre='En Revisión').count()
         finalizados = OrdenTrabajo.objects.filter(estado__nombre='Finalizado').count()
+
+        solicitudes_qs = SolicitudInsumoOrden.objects.filter(estado='PENDIENTE')
+        if 'Supervisor' in user_roles and not user.is_superuser and 'Administrador' not in user_roles:
+            solicitudes_qs = solicitudes_qs.filter(orden__supervisor=user)
+
+        solicitudes_pendientes = solicitudes_qs.count()
+        solicitudes_lista = SolicitudInsumoOrdenSerializer(solicitudes_qs[:10], many=True).data
 
         return Response({
             'total': total,
             'pendientes': pendientes,
             'en_progreso': progreso,
-            'finalizados': finalizados
+            'en_revision': revision,
+            'finalizados': finalizados,
+            'solicitudes_insumos_pendientes': solicitudes_pendientes,
+            'solicitudes_insumos_lista': solicitudes_lista
         })
 
 
@@ -519,6 +537,8 @@ class PerfilUsuarioView(APIView):
     def get(self, request):
         user = request.user
         return Response({
+            'id': user.id,
+            'user_id': user.id,
             'username': user.username,
             'first_name': user.first_name,
             'last_name': user.last_name,
@@ -820,3 +840,148 @@ class MovimientoInventarioViewSet(viewsets.ReadOnlyModelViewSet):
         if orden_id:
             queryset = queryset.filter(orden_id=orden_id)
         return queryset
+
+
+class SolicitudInsumoViewSet(viewsets.ModelViewSet):
+    queryset = SolicitudInsumoOrden.objects.all().order_by('-fecha_solicitud')
+    serializer_class = SolicitudInsumoOrdenSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = super().get_queryset()
+        orden_id = self.request.query_params.get('orden', None)
+        estado = self.request.query_params.get('estado', None)
+        if orden_id:
+            queryset = queryset.filter(orden_id=orden_id)
+        if estado:
+            queryset = queryset.filter(estado=estado.upper())
+        return queryset
+
+    def perform_create(self, serializer):
+        orden_id = self.request.data.get('orden')
+        orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
+        solicitud = serializer.save(solicitado_por=self.request.user, orden=orden)
+        
+        Avance.objects.create(
+            orden=orden,
+            usuario=self.request.user,
+            contenido=f"📋 Solicitud de {solicitud.get_tipo_item_display()}: {solicitud.cantidad}x {solicitud.item.nombre}.\nMotivo: {solicitud.motivo}"
+        )
+
+    @action(detail=True, methods=['post'], url_path='aprobar')
+    def aprobar(self, request, pk=None):
+        user = request.user
+        user_roles = user.groups.values_list('name', flat=True)
+        solicitud = self.get_object()
+
+        es_admin = 'Administrador' in user_roles or user.is_superuser
+        es_supervisor_asignado = 'Supervisor' in user_roles and solicitud.orden.supervisor_id == user.id
+
+        if not (es_admin or es_supervisor_asignado):
+            return Response({'detail': 'Solo los administradores o el supervisor asignado a esta orden pueden aprobar solicitudes de insumos.'}, status=403)
+
+        if solicitud.estado != 'PENDIENTE':
+            return Response({'detail': f'Esta solicitud ya fue procesada ({solicitud.get_estado_display()}).'}, status=400)
+
+        item = solicitud.item
+        cantidad = solicitud.cantidad
+        orden = solicitud.orden
+
+        if solicitud.tipo_item == 'MATERIAL':
+            if item.stock_actual < cantidad:
+                return Response({'detail': f'Stock insuficiente de {item.nombre}. Stock actual: {int(item.stock_actual)} {item.unidad_medida}.'}, status=400)
+
+            stock_anterior = item.stock_actual
+            item.stock_actual -= Decimal(str(cantidad))
+            item.save()
+
+            uso, created = MaterialUsadoOrden.objects.get_or_create(
+                orden=orden,
+                material=item,
+                defaults={'cantidad_estimada': Decimal(str(cantidad)), 'cantidad_real': Decimal(str(cantidad)), 'descontado_de_stock': True}
+            )
+            if not created:
+                uso.cantidad_estimada += Decimal(str(cantidad))
+                uso.cantidad_real += Decimal(str(cantidad))
+                uso.descontado_de_stock = True
+                uso.save()
+
+            MovimientoInventario.objects.create(
+                item=item,
+                tipo_movimiento='SALIDA_ORDEN',
+                cantidad=Decimal(str(cantidad)),
+                stock_anterior=stock_anterior,
+                stock_nuevo=item.stock_actual,
+                orden=orden,
+                usuario=user,
+                motivo=f"Aprobación de Solicitud #{solicitud.id} para {solicitud.solicitado_por.get_full_name() or solicitud.solicitado_por.username}"
+            )
+
+        elif solicitud.tipo_item == 'HERRAMIENTA':
+            HerramientaAsignadaOrden.objects.get_or_create(
+                orden=orden,
+                herramienta=item
+            )
+            item.estado_herramienta = 'EN_USO'
+            item.save()
+
+            MovimientoInventario.objects.create(
+                item=item,
+                tipo_movimiento='SALIDA_ORDEN',
+                cantidad=1,
+                stock_anterior=item.stock_actual,
+                stock_nuevo=item.stock_actual,
+                orden=orden,
+                usuario=user,
+                motivo=f"Despacho de Herramienta por Solicitud #{solicitud.id} (Técnico: {solicitud.solicitado_por.get_full_name() or solicitud.solicitado_por.username})"
+            )
+
+        solicitud.estado = 'APROBADA'
+        solicitud.resuelto_por = user
+        solicitud.fecha_resolucion = timezone.now()
+        solicitud.save()
+
+        Avance.objects.create(
+            orden=orden,
+            usuario=user,
+            contenido=f"✅ Solicitud de insumo APROBADA: {cantidad}x {item.nombre} despachado(s) a la orden."
+        )
+
+        return Response({
+            'detail': 'Solicitud aprobada y despachada con éxito.',
+            'solicitud': SolicitudInsumoOrdenSerializer(solicitud).data
+        })
+
+    @action(detail=True, methods=['post'], url_path='rechazar')
+    def rechazar(self, request, pk=None):
+        user = request.user
+        user_roles = user.groups.values_list('name', flat=True)
+        solicitud = self.get_object()
+
+        es_admin = 'Administrador' in user_roles or user.is_superuser
+        es_supervisor_asignado = 'Supervisor' in user_roles and solicitud.orden.supervisor_id == user.id
+
+        if not (es_admin or es_supervisor_asignado):
+            return Response({'detail': 'Solo los administradores o el supervisor asignado a esta orden pueden rechazar solicitudes de insumos.'}, status=403)
+
+        if solicitud.estado != 'PENDIENTE':
+            return Response({'detail': f'Esta solicitud ya fue procesada ({solicitud.get_estado_display()}).'}, status=400)
+
+        motivo_rechazo = request.data.get('motivo', '').strip()
+        solicitud.estado = 'RECHAZADA'
+        solicitud.resuelto_por = user
+        solicitud.fecha_resolucion = timezone.now()
+        solicitud.observacion_resolucion = motivo_rechazo
+        solicitud.save()
+
+        Avance.objects.create(
+            orden=solicitud.orden,
+            usuario=user,
+            contenido=f"❌ Solicitud de insumo RECHAZADA ({solicitud.item.nombre}).\nObservación: {motivo_rechazo or 'Sin observación'}"
+        )
+
+        return Response({
+            'detail': 'Solicitud rechazada.',
+            'solicitud': SolicitudInsumoOrdenSerializer(solicitud).data
+        })

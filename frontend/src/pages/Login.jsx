@@ -25,12 +25,17 @@ export default function Login() {
             localStorage.setItem('access_token', response.data.access);
             localStorage.setItem('refresh_token', response.data.refresh);
             localStorage.setItem('user_rol', response.data.rol);
-            localStorage.setItem('user_id', response.data.user_id);
+            if (response.data.user_id || response.data.id) {
+                localStorage.setItem('user_id', response.data.user_id || response.data.id);
+            }
             localStorage.setItem('user_name', response.data.nombre_completo);
             localStorage.setItem('debe_cambiar_password', response.data.debe_cambiar_password ? 'true' : 'false');
 
             try {
                 const perfilRes = await api.get('perfil/');
+                if (perfilRes.data.id || perfilRes.data.user_id) {
+                    localStorage.setItem('user_id', perfilRes.data.id || perfilRes.data.user_id);
+                }
                 if (perfilRes.data.foto_perfil) {
                     localStorage.setItem('user_foto', perfilRes.data.foto_perfil);
                 } else {

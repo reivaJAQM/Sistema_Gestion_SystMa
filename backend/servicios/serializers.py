@@ -3,7 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth.models import Group
 from .models import (
     Estado, OrdenTrabajo, Avance, FotoAvance, Profile,
-    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario
+    ItemInventario, HerramientaAsignadaOrden, MaterialUsadoOrden, MovimientoInventario,
+    SolicitudInsumoOrden
 ) 
 
 import secrets
@@ -181,6 +182,31 @@ class MovimientoInventarioSerializer(serializers.ModelSerializer):
         return "Sistema / Almacén"
 
 
+class SolicitudInsumoOrdenSerializer(serializers.ModelSerializer):
+    item_nombre = serializers.ReadOnlyField(source='item.nombre')
+    item_codigo = serializers.ReadOnlyField(source='item.codigo')
+    item_unidad = serializers.ReadOnlyField(source='item.unidad_medida')
+    solicitado_por_nombre = serializers.SerializerMethodField()
+    resuelto_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SolicitudInsumoOrden
+        fields = '__all__'
+        read_only_fields = ['solicitado_por', 'resuelto_por', 'fecha_resolucion', 'fecha_solicitud']
+
+    def get_solicitado_por_nombre(self, obj):
+        if obj.solicitado_por:
+            nombre = f"{obj.solicitado_por.first_name} {obj.solicitado_por.last_name}".strip()
+            return nombre if nombre else obj.solicitado_por.username
+        return ""
+
+    def get_resuelto_por_nombre(self, obj):
+        if obj.resuelto_por:
+            nombre = f"{obj.resuelto_por.first_name} {obj.resuelto_por.last_name}".strip()
+            return nombre if nombre else obj.resuelto_por.username
+        return ""
+
+
 class OrdenTrabajoSerializer(serializers.ModelSerializer):
     estado_data = EstadoSerializer(source='estado', read_only=True)
     cliente_nombre = serializers.SerializerMethodField()
@@ -191,6 +217,7 @@ class OrdenTrabajoSerializer(serializers.ModelSerializer):
     supervisor_nombre = serializers.SerializerMethodField()
     herramientas_asignadas = HerramientaAsignadaOrdenSerializer(many=True, read_only=True)
     materiales_usados = MaterialUsadoOrdenSerializer(many=True, read_only=True)
+    solicitudes_insumos = SolicitudInsumoOrdenSerializer(many=True, read_only=True)
     
     class Meta:
         model = OrdenTrabajo
